@@ -13,6 +13,7 @@ const REFRESH_INTERVAL = 5 * 60; // seconds
 export default function Signals() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
+  const [mounted, setMounted] = useState(false);
 
   const [mounted, setMounted] = useState(false);
   const [signals, setSignals] = useState<Signal[]>([]);
@@ -46,9 +47,9 @@ export default function Signals() {
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!mounted || !isAuthenticated) return;
     fetchSignals();
-  }, [isAuthenticated, fetchSignals]);
+  }, [mounted, isAuthenticated, fetchSignals]);
 
   useEffect(() => {
     countdownRef.current = setInterval(() => {

@@ -3,7 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
-const { adminLogin, listUsers, createUser, deleteUser, getStats } = require('../controllers/adminController');
+const { adminLogin, listUsers, createUser, deleteUser, getStats, getActivity } = require('../controllers/adminController');
 const adminAuthMiddleware = require('../middleware/adminAuth');
 
 const loginRateLimiter = rateLimit({
@@ -27,5 +27,6 @@ router.get('/users', adminRateLimiter, adminAuthMiddleware, listUsers);
 router.post('/users', adminRateLimiter, adminAuthMiddleware, createUser);
 router.delete('/users/:id', adminRateLimiter, adminAuthMiddleware, deleteUser);
 router.get('/stats', adminRateLimiter, adminAuthMiddleware, getStats);
+router.get('/activity', adminRateLimiter, adminAuthMiddleware, getActivity);
 
 module.exports = router;

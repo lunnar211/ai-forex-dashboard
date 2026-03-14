@@ -87,6 +87,18 @@ async function initSchema() {
 
       CREATE INDEX IF NOT EXISTS idx_signal_analyses_user_id ON signal_analyses(user_id);
       CREATE INDEX IF NOT EXISTS idx_signal_analyses_created ON signal_analyses(created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS user_activity (
+        id          SERIAL PRIMARY KEY,
+        user_id     INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        action      VARCHAR(50) NOT NULL,
+        ip_address  VARCHAR(45),
+        user_agent  TEXT,
+        created_at  TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_user_activity_user_id ON user_activity(user_id);
+      CREATE INDEX IF NOT EXISTS idx_user_activity_created ON user_activity(created_at DESC);
     `);
     console.log('[DB] Schema initialised.');
 
@@ -113,11 +125,26 @@ async function seedAdmin(client) {
 
   if (existing.rows.length > 0) {
     // Ensure the existing user is marked as admin
-    await client.query(
-      'UPDATE users SET is_admin = TRUE WHERE email = $1',
+    // Also sync the password if the env-var credential has changed
+    const currentUser = await client.query(
+      'SELECT password FROM users WHERE email = $1',
       [adminEmail.toLowerCase()]
     );
-    console.log('[DB] Admin user already exists — verified admin flag.');
+    const passwordMatches = await bcrypt.compare(adminPassword, currentUser.rows[0].password);
+    if (!passwordMatches) {
+      const hashed = await bcrypt.hash(adminPassword, 12);
+      await client.query(
+        'UPDATE users SET is_admin = TRUE, password = $2 WHERE email = $1',
+        [adminEmail.toLowerCase(), hashed]
+      );
+      console.log('[DB] Admin user already exists — verified admin flag and synced password.');
+    } else {
+      await client.query(
+        'UPDATE users SET is_admin = TRUE WHERE email = $1',
+        [adminEmail.toLowerCase()]
+      );
+      console.log('[DB] Admin user already exists — verified admin flag.');
+    }
     return;
   }
 

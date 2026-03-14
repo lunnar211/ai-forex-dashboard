@@ -20,6 +20,7 @@ const directionStyles: Record<string, string> = {
 export default function History() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
+  const [mounted, setMounted] = useState(false);
 
   const [mounted, setMounted] = useState(false);
   const [records, setRecords] = useState<HistoryRecord[]>([]);
@@ -52,10 +53,10 @@ export default function History() {
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!mounted || !isAuthenticated) return;
     setOffset(0);
     fetchHistory(symbolFilter, 0);
-  }, [symbolFilter, isAuthenticated, fetchHistory]);
+  }, [symbolFilter, mounted, isAuthenticated, fetchHistory]);
 
   function handlePrev() {
     const newOff = Math.max(0, offset - LIMIT);
