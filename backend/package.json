@@ -7,20 +7,21 @@
     "dev": "nodemon src/index.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
+    "@google/generative-ai": "^0.2.1",
+    "axios": "^1.6.2",
+    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
-    "bcryptjs": "^2.4.3",
-    "jsonwebtoken": "^9.0.2",
-    "pg": "^8.11.3",
-    "redis": "^4.6.10",
-    "axios": "^1.6.2",
-    "groq-sdk": "^0.3.3",
-    "openai": "^4.20.1",
-    "@google/generative-ai": "^0.2.1",
+    "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
+    "groq-sdk": "^0.3.3",
     "helmet": "^7.1.0",
-    "morgan": "^1.10.0"
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^2.1.1",
+    "openai": "^4.20.1",
+    "pg": "^8.11.3",
+    "redis": "^4.6.10"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

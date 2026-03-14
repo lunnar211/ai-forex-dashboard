@@ -44,8 +44,52 @@ function buildRuleBasedReasoning(indicators, direction) {
     `Rule-based analysis: RSI at ${indicators.rsi} (${rsiLabel}). ` +
     `MACD histogram is ${macdLabel}. ` +
     `Price is ${ema50Label} the 50 EMA. ` +
+    `Stochastic %K at ${indicators.stochastic?.k || 50}. ` +
+    `ADX at ${indicators.adx?.adx || 25} — trend ${(indicators.adx?.adx || 25) > 25 ? 'strong' : 'weak/ranging'}. ` +
     `Overall indicator confluence suggests a ${direction} bias with moderate conviction.`
   );
+}
+
+function buildBuyReasons(indicators) {
+  const reasons = [];
+  if (indicators.rsi < 40) reasons.push(`RSI at ${indicators.rsi} — approaching oversold, potential bounce incoming`);
+  if ((indicators.macd?.histogram || 0) > 0) reasons.push('MACD histogram is positive — bullish momentum confirmed');
+  if (indicators.currentPrice > (indicators.ema?.ema20 || 0)) reasons.push('Price trading above EMA 20 — short-term uptrend intact');
+  if (indicators.currentPrice > (indicators.ema?.ema50 || 0)) reasons.push('Price above EMA 50 — medium-term trend is bullish');
+  if ((indicators.stochastic?.k || 50) < 30) reasons.push(`Stochastic %K at ${indicators.stochastic?.k} — oversold bounce likely`);
+  if ((indicators.williamsR || -50) < -80) reasons.push(`Williams %R at ${indicators.williamsR} — deep oversold zone, reversal watch`);
+  if ((indicators.adx?.plusDI || 0) > (indicators.adx?.minusDI || 0)) reasons.push('+DI above -DI — buyers in control');
+  if (indicators.currentPrice < (indicators.bollinger?.lower || 0)) reasons.push('Price near/below Bollinger lower band — mean reversion buy opportunity');
+  if (reasons.length < 3) reasons.push('Price holding above key support levels');
+  return reasons.slice(0, 5);
+}
+
+function buildSellReasons(indicators) {
+  const reasons = [];
+  if (indicators.rsi > 60) reasons.push(`RSI at ${indicators.rsi} — approaching overbought, potential pullback`);
+  if ((indicators.macd?.histogram || 0) < 0) reasons.push('MACD histogram is negative — bearish momentum confirmed');
+  if (indicators.currentPrice < (indicators.ema?.ema20 || 0)) reasons.push('Price below EMA 20 — short-term downtrend in effect');
+  if (indicators.currentPrice < (indicators.ema?.ema50 || 0)) reasons.push('Price below EMA 50 — medium-term trend is bearish');
+  if ((indicators.stochastic?.k || 50) > 70) reasons.push(`Stochastic %K at ${indicators.stochastic?.k} — overbought, pullback risk`);
+  if ((indicators.williamsR || -50) > -20) reasons.push(`Williams %R at ${indicators.williamsR} — overbought, watch for reversal`);
+  if ((indicators.adx?.minusDI || 0) > (indicators.adx?.plusDI || 0)) reasons.push('-DI above +DI — sellers in control');
+  if (indicators.currentPrice > (indicators.bollinger?.upper || 0)) reasons.push('Price near/above Bollinger upper band — mean reversion sell opportunity');
+  if (reasons.length < 3) reasons.push('Price approaching key resistance levels');
+  return reasons.slice(0, 5);
+}
+
+function estimateNextSignal(indicators) {
+  const rsi = indicators.rsi || 50;
+  const stochK = indicators.stochastic?.k || 50;
+  const adx = indicators.adx?.adx || 25;
+
+  if (rsi > 65 && rsi < 70) return 'RSI approaching overbought (70) — SELL signal may trigger within 1-3 candles';
+  if (rsi < 35 && rsi > 30) return 'RSI approaching oversold (30) — BUY signal may trigger within 1-3 candles';
+  if (stochK > 75 && stochK < 80) return 'Stochastic approaching overbought zone — watch for %K/%D bearish crossover';
+  if (stochK < 25 && stochK > 20) return 'Stochastic approaching oversold zone — watch for %K/%D bullish crossover';
+  if (adx < 20) return 'ADX below 20 — market ranging; wait for ADX > 25 breakout for next trend signal';
+  if (adx > 40) return 'Strong trend in progress — ride current direction; reversal signal when ADX starts declining';
+  return 'Multiple indicators in neutral zone — monitor for next confluence of 3+ signals before entry';
 }
 
 function ruleBased(symbol, indicators) {
@@ -102,6 +146,9 @@ function ruleBased(symbol, indicators) {
     marketBias: direction === 'BUY' ? 'BULLISH' : direction === 'SELL' ? 'BEARISH' : 'NEUTRAL',
     timeHorizon: 'Short-term (1–4 hours)',
     disclaimer: 'For educational purposes only. Not financial advice.',
+    buyReasons: buildBuyReasons(indicators),
+    sellReasons: buildSellReasons(indicators),
+    nextSignalEta: estimateNextSignal(indicators),
     aiProvider: 'rule-based',
   };
 }

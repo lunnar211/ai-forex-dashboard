@@ -36,6 +36,9 @@ function parseAIResponse(content, indicators) {
     marketBias: parsed.marketBias || 'NEUTRAL',
     timeHorizon: parsed.timeHorizon || 'Short-term',
     disclaimer: 'For educational purposes only. Not financial advice.',
+    buyReasons: Array.isArray(parsed.buyReasons) ? parsed.buyReasons : [],
+    sellReasons: Array.isArray(parsed.sellReasons) ? parsed.sellReasons : [],
+    nextSignalEta: parsed.nextSignalEta || 'Monitor for next confluence setup.',
     aiProvider: 'openai',
   };
 }

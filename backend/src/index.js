@@ -16,6 +16,8 @@ const { pool, initSchema } = require('./config/database');
 const authRoutes = require('./routes/auth');
 const forexRoutes = require('./routes/forex');
 const aiRoutes = require('./routes/ai');
+const adminRoutes = require('./routes/admin');
+const uploadRoutes = require('./routes/upload');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -39,6 +41,8 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use('/auth', authRoutes);
 app.use('/forex', forexRoutes);
 app.use('/ai', aiRoutes);
+app.use('/admin', adminRoutes);
+app.use('/upload', uploadRoutes);
 
 // ─── Health endpoint ─────────────────────────────────────────────────────────
 
