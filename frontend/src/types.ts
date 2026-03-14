@@ -17,6 +17,7 @@ export interface AuthState {
 
 export interface Candle {
   time: number;
+  datetime?: string;
   open: number;
   high: number;
   low: number;
@@ -42,8 +43,8 @@ export interface Indicators {
     ema200: number;
   };
   supportResistance: {
-    support: number;
-    resistance: number;
+    support: number[];
+    resistance: number[];
   };
   atr: number;
   volumeTrend: string;
@@ -102,9 +103,10 @@ export interface Signal {
   symbol: string;
   direction: string;
   confidence: number;
-  currentPrice: number;
-  rsi: number;
-  macdHistogram: number;
-  marketBias: string;
-  isMock: boolean;
+  currentPrice?: number;
+  rsi?: number;
+  macdHistogram?: number;
+  marketBias?: string;
+  isMock?: boolean;
+  error?: string;
 }

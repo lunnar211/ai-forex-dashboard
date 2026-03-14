@@ -132,13 +132,17 @@ export default function PredictionCard({ prediction, indicators, loading, symbol
                 <div className="flex justify-between text-sm">
                   <span className="text-[#94a3b8]">Resistance</span>
                   <span className="font-mono text-[#ef4444]">
-                    {fmt(indicators.supportResistance?.resistance)}
+                    {Array.isArray(indicators.supportResistance?.resistance)
+                      ? fmt(indicators.supportResistance.resistance[indicators.supportResistance.resistance.length - 1])
+                      : '—'}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-[#94a3b8]">Support</span>
                   <span className="font-mono text-[#22c55e]">
-                    {fmt(indicators.supportResistance?.support)}
+                    {Array.isArray(indicators.supportResistance?.support)
+                      ? fmt(indicators.supportResistance.support[indicators.supportResistance.support.length - 1])
+                      : '—'}
                   </span>
                 </div>
               </div>
