@@ -50,7 +50,14 @@ export default function Dashboard() {
     setChartError('');
     try {
       const data = await forex.getPrices(symbol, timeframe, 100);
-      setCandles(data.candles ?? []);
+      const raw: Array<{ datetime?: string; time?: number; open: number; high: number; low: number; close: number; volume: number }> = data.candles ?? [];
+      const converted: Candle[] = raw
+        .map((c) => {
+          const time = c.time ?? (c.datetime ? Math.floor(new Date(c.datetime).getTime() / 1000) : NaN);
+          return { time, datetime: c.datetime, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume };
+        })
+        .filter((c) => !isNaN(c.time));
+      setCandles(converted);
     } catch (err: unknown) {
       setChartError(err instanceof Error ? err.message : 'Failed to load chart data');
     } finally {

@@ -279,7 +279,14 @@ async function getSignals(req, res) {
           };
         } catch (err) {
           console.error(`[AIController] getSignals error for ${symbol}:`, err.message);
-          return { symbol, direction: 'HOLD', confidence: 50, error: err.message };
+          return {
+            symbol,
+            direction: 'HOLD',
+            confidence: 50,
+            marketBias: 'NEUTRAL',
+            isMock: true,
+            error: err.message,
+          };
         }
       })
     );

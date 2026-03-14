@@ -17,8 +17,8 @@ export default function SignalPanel({ signal }: Props) {
   const styleKey = directionStyles[direction] ?? directionStyles.HOLD;
 
   const rsiColor =
-    signal.rsi < 30 ? 'text-[#22c55e]' :
-    signal.rsi > 70 ? 'text-[#ef4444]' :
+    (signal.rsi ?? 50) < 30 ? 'text-[#22c55e]' :
+    (signal.rsi ?? 50) > 70 ? 'text-[#ef4444]' :
     'text-[#eab308]';
 
   const confPct = Math.min(100, Math.max(0, signal.confidence));
@@ -40,10 +40,17 @@ export default function SignalPanel({ signal }: Props) {
         </span>
       </div>
 
+      {/* Error state */}
+      {signal.error && (
+        <div className="text-xs text-[#ef4444] bg-[#7f1d1d] rounded px-2 py-1">
+          Error: {signal.error}
+        </div>
+      )}
+
       {/* Price */}
       <div className="text-center">
         <p className="text-2xl font-mono font-bold text-white">
-          {signal.currentPrice?.toFixed(5)}
+          {signal.currentPrice != null ? signal.currentPrice.toFixed(5) : '—'}
         </p>
         <p className="text-xs text-[#94a3b8]">Current Price</p>
       </div>
