@@ -91,4 +91,21 @@ export const ai = {
   getSignals: () => apiClient.get('/ai/signals').then((r) => r.data),
 };
 
+export const upload = {
+  analyzeChart: (file: File, symbol: string) => {
+    const formData = new FormData();
+    formData.append('chart', file);
+    formData.append('symbol', symbol);
+    return apiClient
+      .post('/upload/analyze', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data);
+  },
+};
+
+export const admin = {
+  getStatus: () => apiClient.get('/admin/status').then((r) => r.data),
+};
+
 export default apiClient;

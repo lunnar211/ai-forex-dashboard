@@ -54,8 +54,22 @@ export default function PredictionCard({ prediction, indicators, loading, symbol
 
   if (!prediction) return null;
 
-  const fmt = (n: number, decimals = 5) =>
-    typeof n === 'number' ? n.toFixed(decimals) : '—';
+  const fmt = (n: number | number[] | undefined, decimals = 5) => {
+    // Support/resistance may come back as arrays; display the first value
+    if (typeof n === 'number') return n.toFixed(decimals);
+    if (Array.isArray(n) && n.length > 0) return n[0].toFixed(decimals);
+    return '—';
+  };
+
+  /** Convert Fibonacci key names like 'fib236' → '23.6%', 'fib0' → '0%', 'fib100' → '100%' */
+  const fibLabel = (key: string): string => {
+    const digits = key.replace('fib', '');
+    if (digits === '0') return '0%';
+    if (digits === '100') return '100%';
+    if (digits.length === 3) return `${digits.slice(0, 1)}.${digits.slice(1)}%`;
+    if (digits.length === 2) return `${digits}%`;
+    return `${digits}%`;
+  };
 
   return (
     <div className="bg-[#1e293b] rounded-xl border border-[#334155] overflow-hidden">
@@ -119,6 +133,60 @@ export default function PredictionCard({ prediction, indicators, loading, symbol
             </>
           )}
         </div>
+
+        {/* Buy / Sell Reasons */}
+        {((prediction.buyReasons && prediction.buyReasons.length > 0) ||
+          (prediction.sellReasons && prediction.sellReasons.length > 0)) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {prediction.buyReasons && prediction.buyReasons.length > 0 && (
+              <div className="bg-[#0f172a] rounded-lg p-4 border-l-2 border-[#22c55e]">
+                <p className="text-xs font-semibold text-[#22c55e] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                  </svg>
+                  Why BUY
+                </p>
+                <ul className="space-y-1.5">
+                  {prediction.buyReasons.map((r, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-[#cbd5e1]">
+                      <span className="text-[#22c55e] mt-0.5 flex-shrink-0">✓</span>
+                      {r}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {prediction.sellReasons && prediction.sellReasons.length > 0 && (
+              <div className="bg-[#0f172a] rounded-lg p-4 border-l-2 border-[#ef4444]">
+                <p className="text-xs font-semibold text-[#ef4444] uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                  </svg>
+                  Why SELL
+                </p>
+                <ul className="space-y-1.5">
+                  {prediction.sellReasons.map((r, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-[#cbd5e1]">
+                      <span className="text-[#ef4444] mt-0.5 flex-shrink-0">✗</span>
+                      {r}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Next Signal ETA */}
+        {prediction.nextSignalEta && (
+          <div className="bg-[#0f172a] rounded-lg p-4 border border-[#334155] flex items-start gap-3">
+            <span className="text-xl flex-shrink-0">⏱</span>
+            <div>
+              <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider mb-1">Next Signal</p>
+              <p className="text-sm text-[#cbd5e1]">{prediction.nextSignalEta}</p>
+            </div>
+          </div>
+        )}
 
         {/* Indicators deep dive */}
         {indicators && (
@@ -200,6 +268,84 @@ export default function PredictionCard({ prediction, indicators, loading, symbol
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Extended indicators: Stochastic, Williams %R, CCI, ADX */}
+        {indicators && (indicators.stochastic || indicators.adx || indicators.fibonacci) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {indicators.stochastic && (
+              <div className="bg-[#0f172a] rounded-lg p-4">
+                <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider mb-2">Stochastic</p>
+                <div className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[#94a3b8]">%K</span>
+                    <span className={clsx('font-mono', (indicators.stochastic.k || 50) > 80 ? 'text-[#ef4444]' : (indicators.stochastic.k || 50) < 20 ? 'text-[#22c55e]' : 'text-white')}>
+                      {indicators.stochastic.k?.toFixed(2)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[#94a3b8]">%D</span>
+                    <span className="font-mono text-blue-400">{indicators.stochastic.d?.toFixed(2)}</span>
+                  </div>
+                  {typeof indicators.williamsR === 'number' && (
+                    <div className="flex justify-between text-sm pt-1 border-t border-[#1e293b]">
+                      <span className="text-[#94a3b8]">Williams %R</span>
+                      <span className={clsx('font-mono', (indicators.williamsR || -50) > -20 ? 'text-[#ef4444]' : (indicators.williamsR || -50) < -80 ? 'text-[#22c55e]' : 'text-white')}>
+                        {indicators.williamsR?.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  {typeof indicators.cci === 'number' && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-[#94a3b8]">CCI (20)</span>
+                      <span className={clsx('font-mono', (indicators.cci || 0) > 100 ? 'text-[#ef4444]' : (indicators.cci || 0) < -100 ? 'text-[#22c55e]' : 'text-white')}>
+                        {indicators.cci?.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            {indicators.adx && (
+              <div className="bg-[#0f172a] rounded-lg p-4">
+                <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider mb-2">
+                  ADX — Trend Strength
+                </p>
+                <div className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[#94a3b8]">ADX</span>
+                    <span className={clsx('font-mono font-bold', (indicators.adx.adx || 0) > 25 ? 'text-white' : 'text-[#475569]')}>
+                      {indicators.adx.adx?.toFixed(2)}
+                      <span className="ml-1 text-xs text-[#475569]">
+                        {(indicators.adx.adx || 0) > 50 ? '(Very Strong)' : (indicators.adx.adx || 0) > 25 ? '(Strong)' : '(Ranging)'}
+                      </span>
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[#94a3b8]">+DI</span>
+                    <span className="font-mono text-[#22c55e]">{indicators.adx.plusDI?.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-[#94a3b8]">-DI</span>
+                    <span className="font-mono text-[#ef4444]">{indicators.adx.minusDI?.toFixed(2)}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            {indicators.fibonacci?.levels && (
+              <div className="bg-[#0f172a] rounded-lg p-4 md:col-span-2">
+                <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider mb-2">Fibonacci Retracement</p>
+                <div className="grid grid-cols-3 md:grid-cols-7 gap-2">
+                  {Object.entries(indicators.fibonacci.levels).map(([key, val]) => (
+                    <div key={key} className="text-center">
+                      <p className="text-[10px] text-[#475569]">{fibLabel(key)}</p>
+                      <p className="text-xs font-mono text-blue-300">{typeof val === 'number' ? val.toFixed(4) : '—'}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

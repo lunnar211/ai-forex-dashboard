@@ -42,8 +42,32 @@ export interface Indicators {
     ema200: number;
   };
   supportResistance: {
-    support: number;
-    resistance: number;
+    support: number | number[];
+    resistance: number | number[];
+  };
+  stochastic?: {
+    k: number;
+    d: number;
+  };
+  williamsR?: number;
+  cci?: number;
+  adx?: {
+    adx: number;
+    plusDI: number;
+    minusDI: number;
+  };
+  fibonacci?: {
+    high: number;
+    low: number;
+    levels: {
+      fib0: number;
+      fib236: number;
+      fib382: number;
+      fib500: number;
+      fib618: number;
+      fib786: number;
+      fib100: number;
+    };
   };
   atr: number;
   volumeTrend: string;
@@ -68,6 +92,9 @@ export interface Prediction {
   timeHorizon: string;
   disclaimer: string;
   aiProvider: string;
+  buyReasons?: string[];
+  sellReasons?: string[];
+  nextSignalEta?: string;
 }
 
 export interface PredictResponse {
@@ -107,4 +134,41 @@ export interface Signal {
   macdHistogram: number;
   marketBias: string;
   isMock: boolean;
+}
+
+export interface ChartAnalysis {
+  symbol: string;
+  patterns: string[];
+  trend: string;
+  direction: 'BUY' | 'SELL' | 'HOLD';
+  confidence: number;
+  supportLevels: string[];
+  resistanceLevels: string[];
+  buyReasons: string[];
+  sellReasons: string[];
+  nextSignalEta: string;
+  analysis: string;
+  disclaimer: string;
+  aiProvider: string;
+  isMockAnalysis?: boolean;
+}
+
+export interface ApiKeyStatus {
+  configured: boolean;
+  masked: string | null;
+}
+
+export interface AdminStatus {
+  apiKeys: {
+    groq: ApiKeyStatus;
+    openai: ApiKeyStatus;
+    gemini: ApiKeyStatus;
+    twelveData: ApiKeyStatus;
+  };
+  services: {
+    database: string;
+    redis: string;
+    forexData: string;
+  };
+  environment: string;
 }
