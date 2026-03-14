@@ -3,6 +3,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import clsx from 'clsx';
+import { useAuthStore } from '../store/authStore';
 
 const navItems = [
   {
@@ -16,6 +17,17 @@ const navItems = [
     ),
   },
   {
+    href: '/signals',
+    label: 'Live Signals',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+          d="M13 10V3L4 14h7v7l9-11h-7z" />
+      </svg>
+    ),
+    badge: 'LIVE',
+  },
+  {
     href: '/history',
     label: 'History',
     icon: (
@@ -25,32 +37,40 @@ const navItems = [
       </svg>
     ),
   },
-  {
-    href: '/signals',
-    label: 'Signals',
-    icon: (
-      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-          d="M13 10V3L4 14h7v7l9-11h-7z" />
-      </svg>
-    ),
-  },
 ];
 
 export default function Sidebar() {
   const router = useRouter();
+  const { user, logout } = useAuthStore();
   const [open, setOpen] = useState(false);
+
+  function handleLogout() {
+    logout();
+    router.replace('/login');
+  }
+
+  const displayName = user?.name || user?.email?.split('@')[0] || 'Trader';
+  const initials = displayName.slice(0, 2).toUpperCase();
 
   const navContent = (
     <>
-      <div className="flex items-center gap-2 px-4 py-5 border-b border-[#334155]">
-        <svg className="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-        </svg>
-        <span className="text-xl font-bold text-white tracking-tight">ForexAI</span>
+      {/* Logo */}
+      <div className="flex items-center gap-3 px-5 py-5 border-b border-[#334155]">
+        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+          </svg>
+        </div>
+        <div>
+          <span className="text-base font-bold text-white tracking-tight">ForexAI</span>
+          <p className="text-[10px] text-[#475569] leading-none mt-0.5">Terminal</p>
+        </div>
       </div>
+
+      {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-1">
+        <p className="px-3 py-1 text-[10px] font-semibold text-[#475569] uppercase tracking-widest mb-2">Navigation</p>
         {navItems.map((item) => {
           const active = router.pathname === item.href;
           return (
@@ -59,20 +79,45 @@ export default function Sidebar() {
               href={item.href}
               onClick={() => setOpen(false)}
               className={clsx(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
                 active
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/30'
                   : 'text-[#94a3b8] hover:bg-[#1e293b] hover:text-white'
               )}
             >
-              {item.icon}
-              {item.label}
+              <span className={active ? 'text-white' : 'text-[#64748b]'}>{item.icon}</span>
+              <span className="flex-1">{item.label}</span>
+              {item.badge && (
+                <span className="px-1.5 py-0.5 bg-green-500/20 text-green-400 text-[9px] font-bold rounded uppercase tracking-wider">
+                  {item.badge}
+                </span>
+              )}
             </Link>
           );
         })}
       </nav>
-      <div className="px-4 py-4 border-t border-[#334155]">
-        <p className="text-xs text-[#475569]">AI Forex Dashboard v1.0</p>
+
+      {/* User section */}
+      <div className="px-3 py-3 border-t border-[#334155]">
+        <div className="flex items-center gap-3 px-3 py-3 rounded-xl bg-[#0f172a] border border-[#334155]">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-600 to-cyan-600 flex items-center justify-center flex-shrink-0">
+            <span className="text-xs font-bold text-white">{initials}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-white truncate">{displayName}</p>
+            <p className="text-[11px] text-[#475569] truncate">{user?.email}</p>
+          </div>
+          <button
+            onClick={handleLogout}
+            title="Sign out"
+            className="text-[#475569] hover:text-red-400 transition-colors flex-shrink-0"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </button>
+        </div>
       </div>
     </>
   );
@@ -81,7 +126,7 @@ export default function Sidebar() {
     <>
       {/* Mobile hamburger */}
       <button
-        className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-[#1e293b] text-white md:hidden"
+        className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-[#1e293b] text-white md:hidden border border-[#334155]"
         onClick={() => setOpen(!open)}
         aria-label="Toggle menu"
       >
@@ -97,7 +142,7 @@ export default function Sidebar() {
       {/* Mobile overlay */}
       {open && (
         <div
-          className="fixed inset-0 z-30 bg-black/60 md:hidden"
+          className="fixed inset-0 z-30 bg-black/70 backdrop-blur-sm md:hidden"
           onClick={() => setOpen(false)}
         />
       )}
@@ -105,7 +150,7 @@ export default function Sidebar() {
       {/* Mobile drawer */}
       <aside
         className={clsx(
-          'fixed top-0 left-0 z-40 h-full w-64 bg-[#0f172a] flex flex-col transition-transform duration-200 md:hidden',
+          'fixed top-0 left-0 z-40 h-full w-64 bg-[#0f172a] flex flex-col transition-transform duration-200 border-r border-[#334155] md:hidden',
           open ? 'translate-x-0' : '-translate-x-full'
         )}
       >

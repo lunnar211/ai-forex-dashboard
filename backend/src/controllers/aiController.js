@@ -215,27 +215,38 @@ async function getHistory(req, res) {
   const pageOffset = Math.max(parseInt(offset, 10) || 0, 0);
 
   try {
-    const params = [userId, pageLimit, pageOffset];
-    let query = `
+    const baseParams = [userId];
+    let baseWhere = 'WHERE user_id = $1';
+
+    if (symbol) {
+      baseParams.push(symbol.toUpperCase());
+      baseWhere += ` AND symbol = $${baseParams.length}`;
+    }
+
+    // Total count query
+    const countResult = await pool.query(
+      `SELECT COUNT(*) AS total FROM predictions ${baseWhere}`,
+      baseParams
+    );
+    const totalCount = parseInt(countResult.rows[0].total, 10);
+
+    // Data query
+    const dataParams = [...baseParams, pageLimit, pageOffset];
+    const dataQuery = `
       SELECT id, symbol, timeframe, direction, confidence,
              entry_price, stop_loss, take_profit, reasoning,
              ai_provider, created_at
       FROM predictions
-      WHERE user_id = $1
+      ${baseWhere}
+      ORDER BY created_at DESC
+      LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}
     `;
 
-    if (symbol) {
-      query += ` AND symbol = $${params.length + 1}`;
-      params.push(symbol.toUpperCase());
-    }
-
-    query += ' ORDER BY created_at DESC LIMIT $2 OFFSET $3';
-
-    const result = await pool.query(query, params);
+    const result = await pool.query(dataQuery, dataParams);
 
     return res.json({
       predictions: result.rows,
-      count: result.rows.length,
+      count: totalCount,
       limit: pageLimit,
       offset: pageOffset,
     });
