@@ -185,7 +185,7 @@ function calculateSupportResistance(highs, lows, lookback = 5) {
     }
   }
 
-  // Deduplicate levels that are within 0.05 % of each other
+  // Deduplicate levels that are within 0.05% of each other
   const dedupe = (levels) => {
     const sorted = [...new Set(levels)].sort((a, b) => a - b);
     const result = [];
