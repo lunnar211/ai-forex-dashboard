@@ -17,7 +17,7 @@ function signToken(user) {
 
 // POST /auth/register
 async function register(req, res) {
-  const { email, password } = req.body;
+  const { email, password, name } = req.body;
 
   if (!email || !password) {
     return res.status(400).json({ error: 'Email and password are required.' });
@@ -42,9 +42,10 @@ async function register(req, res) {
     }
 
     const hashed = await bcrypt.hash(password, SALT_ROUNDS);
+    const trimmedName = name ? name.trim().slice(0, 255) : null;
     const result = await pool.query(
-      'INSERT INTO users (email, password) VALUES ($1, $2) RETURNING id, email, created_at',
-      [email.toLowerCase(), hashed]
+      'INSERT INTO users (email, password, name) VALUES ($1, $2, $3) RETURNING id, email, name, created_at',
+      [email.toLowerCase(), hashed, trimmedName]
     );
 
     const user = result.rows[0];
@@ -53,7 +54,7 @@ async function register(req, res) {
     return res.status(201).json({
       message: 'Account created successfully.',
       token,
-      user: { id: user.id, email: user.email, createdAt: user.created_at },
+      user: { id: user.id, email: user.email, name: user.name, createdAt: user.created_at },
     });
   } catch (err) {
     console.error('[AuthController] register error:', err.message);
@@ -71,7 +72,7 @@ async function login(req, res) {
 
   try {
     const result = await pool.query(
-      'SELECT id, email, password, created_at FROM users WHERE email = $1',
+      'SELECT id, email, password, name, created_at FROM users WHERE email = $1',
       [email.toLowerCase()]
     );
 
@@ -91,7 +92,7 @@ async function login(req, res) {
     return res.json({
       message: 'Login successful.',
       token,
-      user: { id: user.id, email: user.email, createdAt: user.created_at },
+      user: { id: user.id, email: user.email, name: user.name, createdAt: user.created_at },
     });
   } catch (err) {
     console.error('[AuthController] login error:', err.message);
@@ -103,7 +104,7 @@ async function login(req, res) {
 async function getMe(req, res) {
   try {
     const result = await pool.query(
-      'SELECT id, email, created_at FROM users WHERE id = $1',
+      'SELECT id, email, name, created_at FROM users WHERE id = $1',
       [req.user.id]
     );
 
@@ -113,7 +114,7 @@ async function getMe(req, res) {
 
     const user = result.rows[0];
     return res.json({
-      user: { id: user.id, email: user.email, createdAt: user.created_at },
+      user: { id: user.id, email: user.email, name: user.name, createdAt: user.created_at },
     });
   } catch (err) {
     console.error('[AuthController] getMe error:', err.message);

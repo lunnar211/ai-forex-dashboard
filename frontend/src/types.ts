@@ -4,6 +4,7 @@ export type Timeframe = '15min' | '1h' | '4h' | '1day';
 export interface User {
   id: number;
   email: string;
+  name?: string;
   createdAt?: string;
 }
 

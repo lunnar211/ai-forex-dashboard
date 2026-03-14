@@ -36,8 +36,8 @@ apiClient.interceptors.response.use(
 );
 
 export const auth = {
-  register: (email: string, password: string) =>
-    apiClient.post('/auth/register', { email, password }).then((r) => r.data),
+  register: (email: string, password: string, name?: string) =>
+    apiClient.post('/auth/register', { email, password, name }).then((r) => r.data),
 
   login: (email: string, password: string) =>
     apiClient.post('/auth/login', { email, password }).then((r) => r.data),
