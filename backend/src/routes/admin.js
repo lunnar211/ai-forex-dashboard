@@ -1,0 +1,31 @@
+'use strict';
+
+const express = require('express');
+const router = express.Router();
+const rateLimit = require('express-rate-limit');
+const { adminLogin, listUsers, createUser, deleteUser, getStats } = require('../controllers/adminController');
+const adminAuthMiddleware = require('../middleware/adminAuth');
+
+const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Please try again later.' },
+});
+
+const adminRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 60,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please slow down.' },
+});
+
+router.post('/login', loginRateLimiter, adminLogin);
+router.get('/users', adminRateLimiter, adminAuthMiddleware, listUsers);
+router.post('/users', adminRateLimiter, adminAuthMiddleware, createUser);
+router.delete('/users/:id', adminRateLimiter, adminAuthMiddleware, deleteUser);
+router.get('/stats', adminRateLimiter, adminAuthMiddleware, getStats);
+
+module.exports = router;
