@@ -209,6 +209,10 @@ __marimo__/
 # Node.js
 backend/node_modules/
 backend/.env
+frontend/node_modules/
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
 node_modules/
 .env
 .env.local
@@ -216,3 +220,7 @@ node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Next.js build output
+frontend/.next/
+frontend/out/

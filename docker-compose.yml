@@ -1,0 +1,71 @@
+version: '3.9'
+
+services:
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: forex_user
+      POSTGRES_PASSWORD: forex_pass
+      POSTGRES_DB: forex_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U forex_user -d forex_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── Backend API ─────────────────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DATABASE_URL: postgresql://forex_user:forex_pass@db:5432/forex_db
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      TWELVE_DATA_API_KEY: ${TWELVE_DATA_API_KEY:-}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ── Frontend ────────────────────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000}
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000}
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
