@@ -1,0 +1,148 @@
+'use strict';
+
+const Groq = require('groq-sdk');
+
+let groqClient = null;
+
+function getClient() {
+  if (!groqClient && process.env.GROQ_API_KEY) {
+    groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  }
+  return groqClient;
+}
+
+function buildTradingPrompt(symbol, timeframe, indicators, priceData) {
+  return `You are a senior professional forex analyst and algorithmic trading specialist with over 15 years of experience in institutional trading. Analyse the following market data and provide a precise, data-driven trading prediction.
+
+INSTRUMENT: ${symbol}
+TIMEFRAME: ${timeframe}
+CURRENT PRICE: ${indicators.currentPrice}
+24H CHANGE: ${indicators.priceChange}%
+24H HIGH: ${indicators.highLow?.high24h}  |  24H LOW: ${indicators.highLow?.low24h}
+
+TECHNICAL INDICATORS:
+─────────────────────────────────────────
+RSI (14): ${indicators.rsi}
+  → ${indicators.rsi > 70 ? 'OVERBOUGHT — potential reversal or pullback' : indicators.rsi < 30 ? 'OVERSOLD — potential bounce or reversal' : 'NEUTRAL — no extreme reading'}
+
+MACD:
+  MACD Line  : ${indicators.macd?.macd}
+  Signal Line: ${indicators.macd?.signal}
+  Histogram  : ${indicators.macd?.histogram}
+  → ${(indicators.macd?.histogram || 0) > 0 ? 'Bullish momentum — histogram above zero' : 'Bearish momentum — histogram below zero'}
+
+Bollinger Bands:
+  Upper : ${indicators.bollinger?.upper}
+  Middle: ${indicators.bollinger?.middle}  (20-SMA)
+  Lower : ${indicators.bollinger?.lower}
+  → Price is ${indicators.currentPrice > (indicators.bollinger?.upper || 0) ? 'ABOVE upper band (overbought / breakout)' : indicators.currentPrice < (indicators.bollinger?.lower || 0) ? 'BELOW lower band (oversold / breakdown)' : 'INSIDE bands (mean-reverting environment)'}
+
+Exponential Moving Averages:
+  EMA 20 : ${indicators.ema?.ema20}
+  EMA 50 : ${indicators.ema?.ema50}
+  EMA 200: ${indicators.ema?.ema200}
+  → Short-term trend : ${indicators.currentPrice > (indicators.ema?.ema20 || 0) ? 'BULLISH' : 'BEARISH'}
+  → Medium-term trend: ${indicators.currentPrice > (indicators.ema?.ema50 || 0) ? 'BULLISH' : 'BEARISH'}
+  → Long-term trend  : ${indicators.currentPrice > (indicators.ema?.ema200 || 0) ? 'BULLISH' : 'BEARISH'}
+
+ATR (14): ${indicators.atr}  [volatility / stop-distance reference]
+Volume  : ${indicators.volumeTrend}
+
+KEY LEVELS:
+  Support   : ${indicators.supportResistance?.support?.join(' | ') || 'N/A'}
+  Resistance: ${indicators.supportResistance?.resistance?.join(' | ') || 'N/A'}
+─────────────────────────────────────────
+RECENT PRICE ACTION (last 5 closes):
+${JSON.stringify(priceData.slice(-5).map((c) => ({ open: c.open, high: c.high, low: c.low, close: c.close })), null, 2)}
+
+TASK:
+Based on a comprehensive multi-factor analysis of all indicators above, determine:
+1. The most probable near-term directional bias (BUY / SELL / HOLD).
+2. A confidence score (0–100) reflecting the conviction level.
+3. Precise entry price, stop-loss, and take-profit targets using ATR-based methodology.
+4. A concise but professional reasoning narrative (3–5 sentences) covering confluence factors.
+5. Key risks that could invalidate this setup.
+
+Respond ONLY with valid JSON in the following exact structure — no markdown, no prose outside JSON:
+{
+  "direction": "BUY" | "SELL" | "HOLD",
+  "confidence": <number 0-100>,
+  "entryPrice": <number>,
+  "stopLoss": <number>,
+  "takeProfit": <number>,
+  "riskRewardRatio": <number>,
+  "reasoning": "<professional multi-sentence analysis>",
+  "keyRisks": "<brief description of invalidation risks>",
+  "marketBias": "BULLISH" | "BEARISH" | "NEUTRAL",
+  "timeHorizon": "<estimated trade duration>",
+  "disclaimer": "For educational purposes only. Not financial advice."
+}`;
+}
+
+function parseAIResponse(content, symbol, indicators) {
+  // Strip any markdown code fences if present
+  const cleaned = content.replace(/```json|```/g, '').trim();
+
+  let parsed;
+  try {
+    parsed = JSON.parse(cleaned);
+  } catch {
+    // Attempt to extract JSON object from the response
+    const match = cleaned.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error('No valid JSON found in AI response');
+    parsed = JSON.parse(match[0]);
+  }
+
+  // Ensure required fields exist with sensible defaults
+  return {
+    direction: ['BUY', 'SELL', 'HOLD'].includes(parsed.direction) ? parsed.direction : 'HOLD',
+    confidence: Math.min(100, Math.max(0, Number(parsed.confidence) || 50)),
+    entryPrice: Number(parsed.entryPrice) || indicators.currentPrice,
+    stopLoss: Number(parsed.stopLoss) || 0,
+    takeProfit: Number(parsed.takeProfit) || 0,
+    riskRewardRatio: Number(parsed.riskRewardRatio) || 0,
+    reasoning: parsed.reasoning || 'Analysis unavailable.',
+    keyRisks: parsed.keyRisks || 'Market conditions may change rapidly.',
+    marketBias: parsed.marketBias || 'NEUTRAL',
+    timeHorizon: parsed.timeHorizon || 'Short-term',
+    disclaimer: 'For educational purposes only. Not financial advice.',
+    aiProvider: 'groq',
+  };
+}
+
+/**
+ * Generate an AI trading prediction using Groq (llama-3.1-70b-versatile).
+ *
+ * @param {string}   symbol
+ * @param {string}   timeframe
+ * @param {object}   indicators  Output of indicatorService.calculateAll()
+ * @param {object[]} priceData   Array of recent OHLCV candles
+ * @returns {Promise<object>}
+ */
+async function getAIPrediction(symbol, timeframe, indicators, priceData) {
+  const client = getClient();
+  if (!client) {
+    throw new Error('Groq API key not configured');
+  }
+
+  const prompt = buildTradingPrompt(symbol, timeframe, indicators, priceData);
+
+  const completion = await client.chat.completions.create({
+    model: 'llama-3.1-70b-versatile',
+    messages: [
+      {
+        role: 'system',
+        content:
+          'You are a professional forex trading analyst. Always respond with valid JSON only. No markdown, no extra text.',
+      },
+      { role: 'user', content: prompt },
+    ],
+    temperature: 0.3,
+    max_tokens: 1024,
+  });
+
+  const content = completion.choices[0]?.message?.content || '';
+  return parseAIResponse(content, symbol, indicators);
+}
+
+module.exports = { getAIPrediction, buildTradingPrompt };
