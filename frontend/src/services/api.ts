@@ -64,6 +64,14 @@ export const admin = {
 
   getStats: (token: string) =>
     apiClient.get('/admin/stats', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data),
+
+  getActivity: (token: string, limit?: number, action?: string) =>
+    apiClient
+      .get('/admin/activity', {
+        params: { limit, action },
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((r) => r.data),
 };
 
 interface BackendCandle {

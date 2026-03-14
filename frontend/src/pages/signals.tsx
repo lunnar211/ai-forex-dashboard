@@ -13,6 +13,7 @@ const REFRESH_INTERVAL = 5 * 60; // seconds
 export default function Signals() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
+  const [mounted, setMounted] = useState(false);
 
   const [signals, setSignals] = useState<Signal[]>([]);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
@@ -22,8 +23,12 @@ export default function Signals() {
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated) router.replace('/login');
-  }, [isAuthenticated, router]);
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && !isAuthenticated) router.replace('/login');
+  }, [mounted, isAuthenticated, router]);
 
   const fetchSignals = useCallback(async () => {
     setLoading(true);
@@ -41,9 +46,9 @@ export default function Signals() {
   }, []);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!mounted || !isAuthenticated) return;
     fetchSignals();
-  }, [isAuthenticated, fetchSignals]);
+  }, [mounted, isAuthenticated, fetchSignals]);
 
   useEffect(() => {
     countdownRef.current = setInterval(() => {
@@ -60,7 +65,7 @@ export default function Signals() {
     };
   }, [fetchSignals]);
 
-  if (!isAuthenticated) return null;
+  if (!mounted || !isAuthenticated) return null;
 
   const mins = Math.floor(countdown / 60);
   const secs = countdown % 60;

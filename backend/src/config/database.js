@@ -87,6 +87,18 @@ async function initSchema() {
 
       CREATE INDEX IF NOT EXISTS idx_signal_analyses_user_id ON signal_analyses(user_id);
       CREATE INDEX IF NOT EXISTS idx_signal_analyses_created ON signal_analyses(created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS user_activity (
+        id          SERIAL PRIMARY KEY,
+        user_id     INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        action      VARCHAR(50) NOT NULL,
+        ip_address  VARCHAR(45),
+        user_agent  TEXT,
+        created_at  TIMESTAMPTZ DEFAULT NOW()
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_user_activity_user_id ON user_activity(user_id);
+      CREATE INDEX IF NOT EXISTS idx_user_activity_created ON user_activity(created_at DESC);
     `);
     console.log('[DB] Schema initialised.');
 

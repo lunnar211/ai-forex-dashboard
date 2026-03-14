@@ -51,6 +51,12 @@ async function register(req, res) {
     const user = result.rows[0];
     const token = signToken(user);
 
+    // Log registration activity (non-blocking)
+    pool.query(
+      'INSERT INTO user_activity (user_id, action, ip_address, user_agent) VALUES ($1, $2, $3, $4)',
+      [user.id, 'register', req.ip || null, req.headers['user-agent'] || null]
+    ).catch((err) => console.error('[Auth] Failed to log registration activity:', err.message));
+
     return res.status(201).json({
       message: 'Account created successfully.',
       token,
@@ -88,6 +94,12 @@ async function login(req, res) {
     }
 
     const token = signToken(user);
+
+    // Log login activity (non-blocking)
+    pool.query(
+      'INSERT INTO user_activity (user_id, action, ip_address, user_agent) VALUES ($1, $2, $3, $4)',
+      [user.id, 'login', req.ip || null, req.headers['user-agent'] || null]
+    ).catch((err) => console.error('[Auth] Failed to log login activity:', err.message));
 
     return res.json({
       message: 'Login successful.',

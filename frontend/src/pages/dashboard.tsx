@@ -25,6 +25,7 @@ export default function Dashboard() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
   const predictionRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
 
   const [symbol, setSymbol] = useState<ForexSymbol>('EUR/USD');
   const [timeframe, setTimeframe] = useState<Timeframe>('1h');
@@ -40,10 +41,14 @@ export default function Dashboard() {
   const [chartError, setChartError] = useState('');
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (mounted && !isAuthenticated) {
       router.replace('/login');
     }
-  }, [isAuthenticated, router]);
+  }, [mounted, isAuthenticated, router]);
 
   const fetchCandles = useCallback(async () => {
     setLoadingChart(true);
@@ -68,18 +73,18 @@ export default function Dashboard() {
   }, [symbol]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!mounted || !isAuthenticated) return;
     fetchCandles();
     fetchLivePrice();
     setPrediction(null);
     setIndicators(null);
-  }, [symbol, timeframe, isAuthenticated, fetchCandles, fetchLivePrice]);
+  }, [symbol, timeframe, mounted, isAuthenticated, fetchCandles, fetchLivePrice]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!mounted || !isAuthenticated) return;
     const id = setInterval(fetchLivePrice, 30_000);
     return () => clearInterval(id);
-  }, [isAuthenticated, fetchLivePrice]);
+  }, [mounted, isAuthenticated, fetchLivePrice]);
 
   async function handlePredict() {
     setError('');
@@ -100,7 +105,7 @@ export default function Dashboard() {
     }
   }
 
-  if (!isAuthenticated) return null;
+  if (!mounted || !isAuthenticated) return null;
 
   const decimals = symbol === 'USD/JPY' ? 3 : symbol === 'XAU/USD' ? 2 : 5;
 

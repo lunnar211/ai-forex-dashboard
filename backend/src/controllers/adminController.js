@@ -162,4 +162,32 @@ async function getStats(req, res) {
   }
 }
 
-module.exports = { adminLogin, listUsers, createUser, deleteUser, getStats };
+// GET /admin/activity
+async function getActivity(req, res) {
+  const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+  const action = req.query.action || null;
+
+  try {
+    const params = [limit];
+    const actionFilter = action ? 'AND ua.action = $2' : '';
+    if (action) params.push(action);
+
+    const result = await pool.query(
+      `SELECT ua.id, ua.action, ua.ip_address, ua.created_at,
+              u.id AS user_id, u.email, u.name
+       FROM user_activity ua
+       JOIN users u ON u.id = ua.user_id
+       WHERE true ${actionFilter}
+       ORDER BY ua.created_at DESC
+       LIMIT $1`,
+      params
+    );
+
+    return res.json({ activity: result.rows });
+  } catch (err) {
+    console.error('[AdminController] getActivity error:', err.message);
+    return res.status(500).json({ error: 'Failed to retrieve activity.' });
+  }
+}
+
+module.exports = { adminLogin, listUsers, createUser, deleteUser, getStats, getActivity };
