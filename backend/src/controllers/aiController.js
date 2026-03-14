@@ -244,8 +244,18 @@ async function getHistory(req, res) {
 
     const result = await pool.query(dataQuery, dataParams);
 
+    // PostgreSQL returns NUMERIC columns as strings; parse them to numbers so
+    // that the frontend can safely call .toFixed() without a TypeError crash.
+    const predictions = result.rows.map((row) => ({
+      ...row,
+      confidence: row.confidence != null ? parseFloat(row.confidence) : null,
+      entry_price: row.entry_price != null ? parseFloat(row.entry_price) : null,
+      stop_loss: row.stop_loss != null ? parseFloat(row.stop_loss) : null,
+      take_profit: row.take_profit != null ? parseFloat(row.take_profit) : null,
+    }));
+
     return res.json({
-      predictions: result.rows,
+      predictions,
       count: totalCount,
       limit: pageLimit,
       offset: pageOffset,

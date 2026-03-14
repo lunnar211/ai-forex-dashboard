@@ -31,6 +31,11 @@ services:
           property: connectionString
       - key: JWT_SECRET
         generateValue: true
+      # Admin credentials – set these in the Render dashboard after deploy
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
       # Set your AI provider key(s) in the Render dashboard after deploy
       - key: GROQ_API_KEY
         sync: false
