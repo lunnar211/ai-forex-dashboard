@@ -45,6 +45,27 @@ export const auth = {
   me: () => apiClient.get('/auth/me').then((r) => r.data),
 };
 
+export const admin = {
+  login: (email: string, password: string) =>
+    apiClient.post('/admin/login', { email, password }).then((r) => r.data),
+
+  listUsers: (token: string) =>
+    apiClient.get('/admin/users', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data),
+
+  createUser: (token: string, email: string, password: string, name?: string) =>
+    apiClient
+      .post('/admin/users', { email, password, name }, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.data),
+
+  deleteUser: (token: string, id: number) =>
+    apiClient
+      .delete(`/admin/users/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.data),
+
+  getStats: (token: string) =>
+    apiClient.get('/admin/stats', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data),
+};
+
 interface BackendCandle {
   datetime: string;
   open: number;
@@ -89,6 +110,13 @@ export const ai = {
       .then((r) => r.data),
 
   getSignals: () => apiClient.get('/ai/signals').then((r) => r.data),
+
+  analyzeImage: (formData: FormData) =>
+    apiClient
+      .post('/ai/analyze-image', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      .then((r) => r.data),
 };
 
 export default apiClient;

@@ -2,9 +2,24 @@
 
 const express = require('express');
 const router = express.Router();
-const { predict, getHistory, getSignals } = require('../controllers/aiController');
+const multer = require('multer');
+const { predict, getHistory, getSignals, analyzeImage } = require('../controllers/aiController');
 const authMiddleware = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
+
+// Multer: store in memory, max 10 MB per image
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowed.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type. Only images are allowed.'));
+    }
+  },
+});
 
 // Strict limiter for the prediction endpoint (expensive AI calls)
 const predictRateLimiter = rateLimit({
@@ -27,5 +42,6 @@ const readRateLimiter = rateLimit({
 router.post('/predict', predictRateLimiter, authMiddleware, predict);
 router.get('/history', readRateLimiter, authMiddleware, getHistory);
 router.get('/signals', readRateLimiter, authMiddleware, getSignals);
+router.post('/analyze-image', predictRateLimiter, authMiddleware, upload.single('image'), analyzeImage);
 
 module.exports = router;

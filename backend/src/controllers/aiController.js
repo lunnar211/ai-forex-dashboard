@@ -312,4 +312,93 @@ async function getSignals(req, res) {
   }
 }
 
-module.exports = { predict, getHistory, getSignals };
+// POST /ai/analyze-image
+async function analyzeImage(req, res) {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No image file provided.' });
+  }
+
+  const userId = req.user.id;
+
+  // Check file type
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+  if (!allowedTypes.includes(req.file.mimetype)) {
+    return res.status(400).json({ error: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.' });
+  }
+
+  const { GoogleGenerativeAI } = require('@google/generative-ai');
+
+  if (!process.env.GEMINI_API_KEY) {
+    return res.status(503).json({ error: 'Image analysis requires a Gemini API key. Please configure GEMINI_API_KEY.' });
+  }
+
+  try {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+
+    const imageData = {
+      inlineData: {
+        data: req.file.buffer.toString('base64'),
+        mimeType: req.file.mimetype,
+      },
+    };
+
+    const prompt = `You are a professional forex/trading chart analyst. Analyze this trading chart or signal screenshot and provide a structured JSON response with the following fields:
+{
+  "symbol": "detected currency pair or asset (e.g. EUR/USD) or 'Unknown'",
+  "timeframe": "detected timeframe (e.g. 1H, 4H, 1D) or 'Unknown'",
+  "direction": "BUY, SELL, or HOLD based on chart analysis",
+  "confidence": <number 0-100>,
+  "entryPrice": <detected or estimated entry price, or null>,
+  "stopLoss": <detected or estimated stop loss, or null>,
+  "takeProfit": <detected or estimated take profit, or null>,
+  "trend": "UPTREND, DOWNTREND, or SIDEWAYS",
+  "patterns": ["list of identified chart patterns, indicators, or signals"],
+  "reasoning": "detailed analysis of what you see in the chart",
+  "keyLevels": "important support/resistance levels visible",
+  "keyRisks": "main risks associated with this trade",
+  "marketBias": "BULLISH, BEARISH, or NEUTRAL",
+  "timeHorizon": "suggested trade duration",
+  "disclaimer": "For educational purposes only. Not financial advice."
+}
+
+Respond ONLY with valid JSON. No markdown, no extra text.`;
+
+    const result = await model.generateContent([prompt, imageData]);
+    const text = result.response.text();
+
+    let analysis;
+    try {
+      const cleaned = text.replace(/```json|```/g, '').trim();
+      const match = cleaned.match(/\{[\s\S]*\}/);
+      analysis = JSON.parse(match ? match[0] : cleaned);
+    } catch {
+      analysis = {
+        direction: 'HOLD',
+        confidence: 50,
+        reasoning: text,
+        disclaimer: 'For educational purposes only. Not financial advice.',
+        aiProvider: 'gemini',
+      };
+    }
+
+    analysis.aiProvider = 'gemini';
+
+    // Persist analysis
+    try {
+      await pool.query(
+        'INSERT INTO signal_analyses (user_id, image_name, analysis) VALUES ($1, $2, $3)',
+        [userId, req.file.originalname || 'upload', JSON.stringify(analysis)]
+      );
+    } catch (dbErr) {
+      console.error('[AIController] analyzeImage save error:', dbErr.message);
+    }
+
+    return res.json({ analysis });
+  } catch (err) {
+    console.error('[AIController] analyzeImage error:', err.message);
+    return res.status(500).json({ error: 'Failed to analyse image. Please try again.' });
+  }
+}
+
+module.exports = { predict, getHistory, getSignals, analyzeImage };
