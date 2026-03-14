@@ -43,16 +43,9 @@ Render gives you a free PostgreSQL database, free Redis instance, and two free w
 git clone https://github.com/lunnar211/ai-forex-dashboard.git
 cd ai-forex-dashboard
 
-# 2. Create a root .env file with your secrets
-cat > .env <<'EOF'
-JWT_SECRET=replace-with-a-long-random-string
-GROQ_API_KEY=your_groq_api_key
-OPENAI_API_KEY=
-GEMINI_API_KEY=
-TWELVE_DATA_API_KEY=
-CORS_ORIGIN=http://localhost:3000
-NEXT_PUBLIC_API_URL=http://localhost:5000
-EOF
+# 2. Create a root .env file from the example and fill in your secrets
+cp .env.example .env
+# Edit .env and set JWT_SECRET and at least one AI provider key (e.g. GROQ_API_KEY)
 
 # 3. Build and start everything
 docker compose up --build -d
