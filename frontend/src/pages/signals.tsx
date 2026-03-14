@@ -15,6 +15,7 @@ export default function Signals() {
   const { isAuthenticated } = useAuthStore();
   const [mounted, setMounted] = useState(false);
 
+  const [mounted, setMounted] = useState(false);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -27,8 +28,8 @@ export default function Signals() {
   }, []);
 
   useEffect(() => {
-    if (mounted && !isAuthenticated) router.replace('/login');
-  }, [mounted, isAuthenticated, router]);
+    if (!isAuthenticated) router.replace('/login');
+  }, [isAuthenticated, router]);
 
   const fetchSignals = useCallback(async () => {
     setLoading(true);

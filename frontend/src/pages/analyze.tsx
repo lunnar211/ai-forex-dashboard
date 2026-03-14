@@ -32,6 +32,7 @@ export default function Analyze() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [mounted, setMounted] = useState(false);
 
+  const [mounted, setMounted] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -44,8 +45,8 @@ export default function Analyze() {
   }, []);
 
   useEffect(() => {
-    if (mounted && !isAuthenticated) router.replace('/login');
-  }, [mounted, isAuthenticated, router]);
+    if (!isAuthenticated) router.replace('/login');
+  }, [isAuthenticated, router]);
 
   function handleFileSelect(file: File) {
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];

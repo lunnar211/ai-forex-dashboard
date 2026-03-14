@@ -27,6 +27,7 @@ export default function Dashboard() {
   const predictionRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
 
+  const [mounted, setMounted] = useState(false);
   const [symbol, setSymbol] = useState<ForexSymbol>('EUR/USD');
   const [timeframe, setTimeframe] = useState<Timeframe>('1h');
   const [candles, setCandles] = useState<Candle[]>([]);
@@ -45,7 +46,7 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (mounted && !isAuthenticated) {
+    if (!isAuthenticated) {
       router.replace('/login');
     }
   }, [mounted, isAuthenticated, router]);

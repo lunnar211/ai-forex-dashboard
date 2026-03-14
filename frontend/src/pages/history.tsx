@@ -22,6 +22,7 @@ export default function History() {
   const { isAuthenticated } = useAuthStore();
   const [mounted, setMounted] = useState(false);
 
+  const [mounted, setMounted] = useState(false);
   const [records, setRecords] = useState<HistoryRecord[]>([]);
   const [count, setCount] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -34,8 +35,8 @@ export default function History() {
   }, []);
 
   useEffect(() => {
-    if (mounted && !isAuthenticated) router.replace('/login');
-  }, [mounted, isAuthenticated, router]);
+    if (!isAuthenticated) router.replace('/login');
+  }, [isAuthenticated, router]);
 
   const fetchHistory = useCallback(async (sym: string, off: number) => {
     setLoading(true);
