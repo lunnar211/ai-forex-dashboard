@@ -45,11 +45,35 @@ export const auth = {
   me: () => apiClient.get('/auth/me').then((r) => r.data),
 };
 
+interface BackendCandle {
+  datetime: string;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+function toCandle(c: BackendCandle) {
+  const ts = Math.floor(new Date(c.datetime).getTime() / 1000);
+  return {
+    time: isNaN(ts) ? 0 : ts,
+    open: c.open,
+    high: c.high,
+    low: c.low,
+    close: c.close,
+    volume: c.volume,
+  };
+}
+
 export const forex = {
   getPrices: (symbol: string, interval: string, outputsize = 100) =>
     apiClient
       .get('/forex/prices', { params: { symbol, interval, outputsize } })
-      .then((r) => r.data),
+      .then((r) => ({
+        ...r.data,
+        candles: (r.data.candles ?? []).map(toCandle),
+      })),
 
   getLivePrice: (symbol: string) =>
     apiClient.get('/forex/live', { params: { symbol } }).then((r) => r.data),
