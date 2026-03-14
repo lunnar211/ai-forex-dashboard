@@ -12,12 +12,13 @@ function validateEnv() {
     }
   }
 
-  // At least one AI provider key must be present
+  // AI provider keys are optional — app falls back to rule-based predictions when none are set
   const aiKeys = ['GROQ_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY'];
   const hasAiKey = aiKeys.some((k) => process.env[k]);
   if (!hasAiKey) {
-    errors.push(
-      `Missing AI provider key. At least one of the following is required: ${aiKeys.join(', ')}`
+    warnings.push(
+      `No AI provider key found (${aiKeys.join(', ')}). ` +
+      'The /ai/predict endpoint will use rule-based signals instead of LLM predictions.'
     );
   } else {
     for (const k of aiKeys) {

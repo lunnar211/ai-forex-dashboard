@@ -216,6 +216,7 @@ async function getHistory(req, res) {
 
   try {
     const params = [userId, pageLimit, pageOffset];
+    const countParams = [userId];
     let query = `
       SELECT id, symbol, timeframe, direction, confidence,
              entry_price, stop_loss, take_profit, reasoning,
@@ -223,19 +224,26 @@ async function getHistory(req, res) {
       FROM predictions
       WHERE user_id = $1
     `;
+    let countQuery = `SELECT COUNT(*) FROM predictions WHERE user_id = $1`;
 
     if (symbol) {
+      const symbolUpper = symbol.toUpperCase();
       query += ` AND symbol = $${params.length + 1}`;
-      params.push(symbol.toUpperCase());
+      params.push(symbolUpper);
+      countQuery += ` AND symbol = $${countParams.length + 1}`;
+      countParams.push(symbolUpper);
     }
 
     query += ' ORDER BY created_at DESC LIMIT $2 OFFSET $3';
 
-    const result = await pool.query(query, params);
+    const [result, countResult] = await Promise.all([
+      pool.query(query, params),
+      pool.query(countQuery, countParams),
+    ]);
 
     return res.json({
       predictions: result.rows,
-      count: result.rows.length,
+      count: parseInt(countResult.rows[0].count, 10),
       limit: pageLimit,
       offset: pageOffset,
     });
