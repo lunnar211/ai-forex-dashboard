@@ -17,6 +17,7 @@ services:
     rootDir: backend
     buildCommand: npm ci
     startCommand: npm start
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
@@ -52,8 +53,12 @@ services:
     runtime: node
     plan: free
     rootDir: frontend
-    buildCommand: npm ci && npm run build
-    startCommand: npm start
+    buildCommand: >
+      npm ci && npm run build &&
+      cp -r .next/static .next/standalone/.next/static &&
+      if [ -d public ]; then cp -r public .next/standalone/public; fi
+    startCommand: node .next/standalone/server.js
+    healthCheckPath: /
     envVars:
       - key: NEXT_PUBLIC_API_URL
         fromService:

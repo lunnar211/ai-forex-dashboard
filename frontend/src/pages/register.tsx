@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { auth } from '../services/api';
 import { useAuthStore } from '../store/authStore';
+import { friendlyError } from '../utils';
 
 export default function Register() {
   const router = useRouter();
@@ -24,7 +25,7 @@ export default function Register() {
       login(data.token, data.user);
       router.replace('/dashboard');
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Registration failed');
+      setError(friendlyError(err, 'Registration failed'));
     } finally {
       setLoading(false);
     }

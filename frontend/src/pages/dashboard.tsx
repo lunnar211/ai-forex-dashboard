@@ -9,6 +9,7 @@ import Sidebar from '../components/Sidebar';
 import TopNav from '../components/TopNav';
 import PredictionCard from '../components/PredictionCard';
 import IndicatorGauges from '../components/IndicatorGauges';
+import { friendlyError } from '../utils';
 import type { Candle, Prediction, Indicators, ForexSymbol, Timeframe, PredictResponse } from '../types';
 
 const ChartPanel = dynamic(() => import('../components/ChartPanel'), { ssr: false });
@@ -52,7 +53,7 @@ export default function Dashboard() {
       const data = await forex.getPrices(symbol, timeframe, 100);
       setCandles(data.candles ?? []);
     } catch (err: unknown) {
-      setChartError(err instanceof Error ? err.message : 'Failed to load chart data');
+      setChartError(friendlyError(err, 'Failed to load chart data'));
     } finally {
       setLoadingChart(false);
     }
@@ -94,7 +95,7 @@ export default function Dashboard() {
         predictionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 100);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Prediction failed');
+      setError(friendlyError(err, 'Prediction failed'));
     } finally {
       setLoadingPredict(false);
     }
