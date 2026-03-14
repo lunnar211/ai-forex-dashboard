@@ -125,11 +125,26 @@ async function seedAdmin(client) {
 
   if (existing.rows.length > 0) {
     // Ensure the existing user is marked as admin
-    await client.query(
-      'UPDATE users SET is_admin = TRUE WHERE email = $1',
+    // Also sync the password if the env-var credential has changed
+    const currentUser = await client.query(
+      'SELECT password FROM users WHERE email = $1',
       [adminEmail.toLowerCase()]
     );
-    console.log('[DB] Admin user already exists — verified admin flag.');
+    const passwordMatches = await bcrypt.compare(adminPassword, currentUser.rows[0].password);
+    if (!passwordMatches) {
+      const hashed = await bcrypt.hash(adminPassword, 12);
+      await client.query(
+        'UPDATE users SET is_admin = TRUE, password = $2 WHERE email = $1',
+        [adminEmail.toLowerCase(), hashed]
+      );
+      console.log('[DB] Admin user already exists — verified admin flag and synced password.');
+    } else {
+      await client.query(
+        'UPDATE users SET is_admin = TRUE WHERE email = $1',
+        [adminEmail.toLowerCase()]
+      );
+      console.log('[DB] Admin user already exists — verified admin flag.');
+    }
     return;
   }
 
