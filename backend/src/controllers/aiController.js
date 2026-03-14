@@ -372,7 +372,8 @@ Respond ONLY with valid JSON. No markdown, no extra text.`;
       const cleaned = text.replace(/```json|```/g, '').trim();
       const match = cleaned.match(/\{[\s\S]*\}/);
       analysis = JSON.parse(match ? match[0] : cleaned);
-    } catch {
+    } catch (parseErr) {
+      console.warn('[AIController] analyzeImage: could not parse AI JSON response:', parseErr.message);
       analysis = {
         direction: 'HOLD',
         confidence: 50,

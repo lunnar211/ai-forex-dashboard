@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, FormEvent } from 'react';
+import { useEffect, useState, FormEvent, useCallback } from 'react';
 import { useRouter } from 'next/router';
 import { admin } from '../../services/api';
 
@@ -55,13 +55,7 @@ export default function AdminDashboard() {
     }
   }, [router]);
 
-  useEffect(() => {
-    if (!token) return;
-    loadUsers();
-    loadStats();
-  }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  async function loadUsers() {
+  const loadUsers = useCallback(async () => {
     if (!token) return;
     setLoadingUsers(true);
     setError('');
@@ -73,9 +67,9 @@ export default function AdminDashboard() {
     } finally {
       setLoadingUsers(false);
     }
-  }
+  }, [token]);
 
-  async function loadStats() {
+  const loadStats = useCallback(async () => {
     if (!token) return;
     try {
       const data = await admin.getStats(token);
@@ -83,7 +77,13 @@ export default function AdminDashboard() {
     } catch {
       // non-critical
     }
-  }
+  }, [token]);
+
+  useEffect(() => {
+    if (!token) return;
+    loadUsers();
+    loadStats();
+  }, [token, loadUsers, loadStats]);
 
   async function handleCreateUser(e: FormEvent) {
     e.preventDefault();
