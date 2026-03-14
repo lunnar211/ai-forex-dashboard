@@ -2,6 +2,8 @@
 
 A full-stack AI-powered forex trading dashboard with real-time price charts, technical indicators, and multi-provider AI predictions (Groq / OpenAI / Gemini).
 
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/lunnar211/ai-forex-dashboard)
+
 ---
 
 ## Tech Stack
