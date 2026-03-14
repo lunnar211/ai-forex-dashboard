@@ -8,18 +8,21 @@ interface AdminUser {
   email: string;
   name: string | null;
   is_admin: boolean;
+  is_blocked: boolean;
   created_at: string;
 }
 
 interface Stats {
   totalUsers: number;
   totalPredictions: number;
+  activeUsersLast24h: number;
 }
 
 interface ActivityRecord {
   id: number;
   action: string;
   ip_address: string | null;
+  user_agent: string | null;
   created_at: string;
   user_id: number;
   email: string;
@@ -55,6 +58,9 @@ export default function AdminDashboard() {
   // Delete confirmation
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Block/unblock
+  const [blockingId, setBlockingId] = useState<number | null>(null);
 
   useEffect(() => {
     const storedToken = sessionStorage.getItem('admin-token');
@@ -166,6 +172,32 @@ export default function AdminDashboard() {
     }
   }
 
+  async function handleBlockUser(id: number) {
+    if (!token) return;
+    setBlockingId(id);
+    try {
+      await admin.blockUser(token, id);
+      loadUsers();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to block user');
+    } finally {
+      setBlockingId(null);
+    }
+  }
+
+  async function handleUnblockUser(id: number) {
+    if (!token) return;
+    setBlockingId(id);
+    try {
+      await admin.unblockUser(token, id);
+      loadUsers();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to unblock user');
+    } finally {
+      setBlockingId(null);
+    }
+  }
+
   function handleLogout() {
     sessionStorage.removeItem('admin-token');
     sessionStorage.removeItem('admin-user');
@@ -206,9 +238,10 @@ export default function AdminDashboard() {
       <main className="max-w-6xl mx-auto p-6 space-y-6">
         {/* Stats */}
         {stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <StatCard label="Registered Users" value={stats.totalUsers} color="blue" />
             <StatCard label="Total Predictions" value={stats.totalPredictions} color="green" />
+            <StatCard label="Active (24h)" value={stats.activeUsersLast24h} color="yellow" />
             <StatCard label="Admin Accounts" value={users.filter((u) => u.is_admin).length} color="red" />
           </div>
         )}
@@ -349,6 +382,7 @@ export default function AdminDashboard() {
                       <th className="text-left px-6 py-3 text-[#475569] text-xs font-semibold uppercase tracking-wider">ID</th>
                       <th className="text-left px-6 py-3 text-[#475569] text-xs font-semibold uppercase tracking-wider">Name</th>
                       <th className="text-left px-6 py-3 text-[#475569] text-xs font-semibold uppercase tracking-wider">Email</th>
+                      <th className="text-left px-6 py-3 text-[#475569] text-xs font-semibold uppercase tracking-wider">Status</th>
                       <th className="text-left px-6 py-3 text-[#475569] text-xs font-semibold uppercase tracking-wider">Joined</th>
                       <th className="px-6 py-3" />
                     </tr>
@@ -359,6 +393,13 @@ export default function AdminDashboard() {
                         <td className="px-6 py-3 text-[#94a3b8] font-mono text-xs">#{user.id}</td>
                         <td className="px-6 py-3 text-white">{user.name || <span className="text-[#475569]">—</span>}</td>
                         <td className="px-6 py-3 text-[#94a3b8]">{user.email}</td>
+                        <td className="px-6 py-3">
+                          {user.is_blocked ? (
+                            <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-900/40 text-red-400">Blocked</span>
+                          ) : (
+                            <span className="px-2 py-0.5 rounded text-xs font-bold bg-green-900/40 text-green-400">Active</span>
+                          )}
+                        </td>
                         <td className="px-6 py-3 text-[#475569] text-xs">
                           {new Date(user.created_at).toLocaleDateString()}
                         </td>
@@ -381,12 +422,31 @@ export default function AdminDashboard() {
                               </button>
                             </div>
                           ) : (
-                            <button
-                              onClick={() => setDeleteId(user.id)}
-                              className="px-2 py-1 text-[#475569] hover:text-red-400 hover:bg-red-900/20 text-xs rounded transition-colors"
-                            >
-                              Delete
-                            </button>
+                            <div className="flex items-center justify-end gap-2">
+                              {user.is_blocked ? (
+                                <button
+                                  onClick={() => handleUnblockUser(user.id)}
+                                  disabled={blockingId === user.id}
+                                  className="px-2 py-1 bg-green-700 hover:bg-green-600 disabled:opacity-50 text-white text-xs rounded transition-colors"
+                                >
+                                  {blockingId === user.id ? '…' : 'Unblock'}
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => handleBlockUser(user.id)}
+                                  disabled={blockingId === user.id}
+                                  className="px-2 py-1 bg-yellow-700 hover:bg-yellow-600 disabled:opacity-50 text-white text-xs rounded transition-colors"
+                                >
+                                  {blockingId === user.id ? '…' : 'Block'}
+                                </button>
+                              )}
+                              <button
+                                onClick={() => setDeleteId(user.id)}
+                                className="px-2 py-1 text-[#475569] hover:text-red-400 hover:bg-red-900/20 text-xs rounded transition-colors"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           )}
                         </td>
                       </tr>
@@ -458,6 +518,7 @@ export default function AdminDashboard() {
                       <th className="text-left px-6 py-3 text-[#475569] text-xs font-semibold uppercase tracking-wider">User</th>
                       <th className="text-left px-6 py-3 text-[#475569] text-xs font-semibold uppercase tracking-wider">Email</th>
                       <th className="text-left px-6 py-3 text-[#475569] text-xs font-semibold uppercase tracking-wider">IP Address</th>
+                      <th className="text-left px-6 py-3 text-[#475569] text-xs font-semibold uppercase tracking-wider">Browser / Device</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#0f172a]">
@@ -482,6 +543,9 @@ export default function AdminDashboard() {
                         <td className="px-6 py-3 text-[#475569] font-mono text-xs">
                           {item.ip_address || '—'}
                         </td>
+                        <td className="px-6 py-3 text-[#475569] text-xs max-w-xs truncate" title={item.user_agent || undefined}>
+                          {item.user_agent || '—'}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -495,11 +559,12 @@ export default function AdminDashboard() {
   );
 }
 
-function StatCard({ label, value, color }: { label: string; value: number; color: 'blue' | 'green' | 'red' }) {
+function StatCard({ label, value, color }: { label: string; value: number; color: 'blue' | 'green' | 'red' | 'yellow' }) {
   const colors = {
     blue: 'text-blue-400 bg-blue-900/20 border-blue-500/20',
     green: 'text-green-400 bg-green-900/20 border-green-500/20',
     red: 'text-red-400 bg-red-900/20 border-red-500/20',
+    yellow: 'text-yellow-400 bg-yellow-900/20 border-yellow-500/20',
   };
   return (
     <div className={`rounded-xl border p-4 ${colors[color]}`}>

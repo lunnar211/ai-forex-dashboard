@@ -78,7 +78,7 @@ async function login(req, res) {
 
   try {
     const result = await pool.query(
-      'SELECT id, email, password, name, created_at FROM users WHERE email = $1',
+      'SELECT id, email, password, name, is_blocked, created_at FROM users WHERE email = $1',
       [email.toLowerCase()]
     );
 
@@ -91,6 +91,10 @@ async function login(req, res) {
 
     if (!isValid) {
       return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    if (user.is_blocked) {
+      return res.status(403).json({ error: 'Your account has been suspended. Please contact support.' });
     }
 
     const token = signToken(user);

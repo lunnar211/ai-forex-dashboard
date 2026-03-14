@@ -62,6 +62,16 @@ export const admin = {
       .delete(`/admin/users/${id}`, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.data),
 
+  blockUser: (token: string, id: number) =>
+    apiClient
+      .patch(`/admin/users/${id}/block`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.data),
+
+  unblockUser: (token: string, id: number) =>
+    apiClient
+      .patch(`/admin/users/${id}/unblock`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.data),
+
   getStats: (token: string) =>
     apiClient.get('/admin/stats', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data),
 

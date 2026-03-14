@@ -61,7 +61,7 @@ async function adminLogin(req, res) {
 async function listUsers(req, res) {
   try {
     const result = await pool.query(
-      'SELECT id, email, name, is_admin, created_at FROM users ORDER BY created_at DESC'
+      'SELECT id, email, name, is_admin, is_blocked, created_at FROM users ORDER BY created_at DESC'
     );
     return res.json({ users: result.rows });
   } catch (err) {
@@ -147,14 +147,20 @@ async function deleteUser(req, res) {
 // GET /admin/stats
 async function getStats(req, res) {
   try {
-    const [usersResult, predictionsResult] = await Promise.all([
+    const [usersResult, predictionsResult, activeResult] = await Promise.all([
       pool.query('SELECT COUNT(*) AS total FROM users WHERE is_admin = FALSE'),
       pool.query('SELECT COUNT(*) AS total FROM predictions'),
+      pool.query(
+        `SELECT COUNT(DISTINCT user_id) AS total
+         FROM user_activity
+         WHERE created_at >= NOW() - INTERVAL '24 hours'`
+      ),
     ]);
 
     return res.json({
       totalUsers: parseInt(usersResult.rows[0].total, 10),
       totalPredictions: parseInt(predictionsResult.rows[0].total, 10),
+      activeUsersLast24h: parseInt(activeResult.rows[0].total, 10),
     });
   } catch (err) {
     console.error('[AdminController] getStats error:', err.message);
@@ -173,7 +179,7 @@ async function getActivity(req, res) {
     if (action) params.push(action);
 
     const result = await pool.query(
-      `SELECT ua.id, ua.action, ua.ip_address, ua.created_at,
+      `SELECT ua.id, ua.action, ua.ip_address, ua.user_agent, ua.created_at,
               u.id AS user_id, u.email, u.name
        FROM user_activity ua
        JOIN users u ON u.id = ua.user_id
@@ -190,4 +196,64 @@ async function getActivity(req, res) {
   }
 }
 
-module.exports = { adminLogin, listUsers, createUser, deleteUser, getStats, getActivity };
+// PATCH /admin/users/:id/block
+async function blockUser(req, res) {
+  const { id } = req.params;
+  const parsedId = parseInt(id, 10);
+
+  if (isNaN(parsedId)) {
+    return res.status(400).json({ error: 'Invalid user ID.' });
+  }
+
+  if (parsedId === req.user.id) {
+    return res.status(400).json({ error: 'Cannot block your own admin account.' });
+  }
+
+  try {
+    const result = await pool.query(
+      'UPDATE users SET is_blocked = TRUE WHERE id = $1 AND is_admin = FALSE RETURNING id, email',
+      [parsedId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found or cannot block admin accounts.' });
+    }
+
+    return res.json({ message: 'User blocked successfully.' });
+  } catch (err) {
+    console.error('[AdminController] blockUser error:', err.message);
+    return res.status(500).json({ error: 'Failed to block user.' });
+  }
+}
+
+// PATCH /admin/users/:id/unblock
+async function unblockUser(req, res) {
+  const { id } = req.params;
+  const parsedId = parseInt(id, 10);
+
+  if (isNaN(parsedId)) {
+    return res.status(400).json({ error: 'Invalid user ID.' });
+  }
+
+  if (parsedId === req.user.id) {
+    return res.status(400).json({ error: 'Cannot unblock your own admin account.' });
+  }
+
+  try {
+    const result = await pool.query(
+      'UPDATE users SET is_blocked = FALSE WHERE id = $1 AND is_admin = FALSE RETURNING id, email',
+      [parsedId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found or cannot unblock admin accounts.' });
+    }
+
+    return res.json({ message: 'User unblocked successfully.' });
+  } catch (err) {
+    console.error('[AdminController] unblockUser error:', err.message);
+    return res.status(500).json({ error: 'Failed to unblock user.' });
+  }
+}
+
+module.exports = { adminLogin, listUsers, createUser, deleteUser, getStats, getActivity, blockUser, unblockUser };

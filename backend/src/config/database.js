@@ -32,6 +32,7 @@ async function initSchema() {
         password    VARCHAR(255) NOT NULL,
         name        VARCHAR(255),
         is_admin    BOOLEAN DEFAULT FALSE,
+        is_blocked  BOOLEAN DEFAULT FALSE,
         created_at  TIMESTAMPTZ DEFAULT NOW()
       );
 
@@ -54,6 +55,17 @@ async function initSchema() {
           WHERE table_name = 'users' AND column_name = 'is_admin'
         ) THEN
           ALTER TABLE users ADD COLUMN is_admin BOOLEAN DEFAULT FALSE;
+        END IF;
+      END $$;
+
+      -- Add is_blocked column if upgrading from an older schema
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'users' AND column_name = 'is_blocked'
+        ) THEN
+          ALTER TABLE users ADD COLUMN is_blocked BOOLEAN DEFAULT FALSE;
         END IF;
       END $$;
 
