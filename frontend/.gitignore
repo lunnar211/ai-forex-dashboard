@@ -1,0 +1,5 @@
+# Next.js
+.next/
+out/
+node_modules/
+*.tsbuildinfo
