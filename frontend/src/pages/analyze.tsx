@@ -31,12 +31,17 @@ export default function Analyze() {
   const { isAuthenticated } = useAuthStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [mounted, setMounted] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [analysis, setAnalysis] = useState<ImageAnalysis | null>(null);
   const [dragOver, setDragOver] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) router.replace('/login');
@@ -96,7 +101,7 @@ export default function Analyze() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   }
 
-  if (!isAuthenticated) return null;
+  if (!mounted || !isAuthenticated) return null;
 
   const directionColor =
     analysis?.direction === 'BUY'

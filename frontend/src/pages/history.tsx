@@ -21,12 +21,17 @@ export default function History() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
 
+  const [mounted, setMounted] = useState(false);
   const [records, setRecords] = useState<HistoryRecord[]>([]);
   const [count, setCount] = useState(0);
   const [offset, setOffset] = useState(0);
   const [symbolFilter, setSymbolFilter] = useState('All');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) router.replace('/login');
@@ -67,7 +72,7 @@ export default function History() {
   const totalPages = Math.ceil(count / LIMIT);
   const currentPage = Math.floor(offset / LIMIT) + 1;
 
-  if (!isAuthenticated) return null;
+  if (!mounted || !isAuthenticated) return null;
 
   return (
     <div className="flex min-h-screen bg-[#0f172a]">

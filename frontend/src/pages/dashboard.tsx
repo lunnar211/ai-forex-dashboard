@@ -26,6 +26,7 @@ export default function Dashboard() {
   const { isAuthenticated } = useAuthStore();
   const predictionRef = useRef<HTMLDivElement>(null);
 
+  const [mounted, setMounted] = useState(false);
   const [symbol, setSymbol] = useState<ForexSymbol>('EUR/USD');
   const [timeframe, setTimeframe] = useState<Timeframe>('1h');
   const [candles, setCandles] = useState<Candle[]>([]);
@@ -38,6 +39,10 @@ export default function Dashboard() {
   const [loadingPredict, setLoadingPredict] = useState(false);
   const [error, setError] = useState('');
   const [chartError, setChartError] = useState('');
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -100,7 +105,7 @@ export default function Dashboard() {
     }
   }
 
-  if (!isAuthenticated) return null;
+  if (!mounted || !isAuthenticated) return null;
 
   const decimals = symbol === 'USD/JPY' ? 3 : symbol === 'XAU/USD' ? 2 : 5;
 

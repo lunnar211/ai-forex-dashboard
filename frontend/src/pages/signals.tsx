@@ -14,12 +14,17 @@ export default function Signals() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
 
+  const [mounted, setMounted] = useState(false);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [countdown, setCountdown] = useState(REFRESH_INTERVAL);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isAuthenticated) router.replace('/login');
@@ -60,7 +65,7 @@ export default function Signals() {
     };
   }, [fetchSignals]);
 
-  if (!isAuthenticated) return null;
+  if (!mounted || !isAuthenticated) return null;
 
   const mins = Math.floor(countdown / 60);
   const secs = countdown % 60;
