@@ -195,7 +195,7 @@ export default function PredictionCard({ prediction, indicators, loading, symbol
                 <div className="flex justify-between text-sm">
                   <span className="text-[#94a3b8]">Change</span>
                   <span className={clsx('font-mono', (indicators.priceChange ?? 0) >= 0 ? 'text-[#22c55e]' : 'text-[#ef4444]')}>
-                    {indicators.priceChange >= 0 ? '+' : ''}{indicators.priceChange?.toFixed(4)}
+                    {(indicators.priceChange ?? 0) >= 0 ? '+' : ''}{(indicators.priceChange ?? 0).toFixed(4)}
                   </span>
                 </div>
               </div>
