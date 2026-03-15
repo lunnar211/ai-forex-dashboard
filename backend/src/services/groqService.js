@@ -1,6 +1,7 @@
 'use strict';
 
 const Groq = require('groq-sdk');
+const { MASTER_SYSTEM_PROMPT } = require('./masterPrompt');
 
 let groqClient = null;
 
@@ -139,8 +140,7 @@ async function getAIPrediction(symbol, timeframe, indicators, priceData) {
     messages: [
       {
         role: 'system',
-        content:
-          'You are a master trading analyst with institutional-level expertise. Always respond with valid JSON only. No markdown, no extra text.',
+        content: MASTER_SYSTEM_PROMPT,
       },
       { role: 'user', content: prompt },
     ],
