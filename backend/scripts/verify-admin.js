@@ -134,7 +134,7 @@ async function verifyAdmin() {
     console.log('You can now log in at:');
     console.log('   https://ai-forex-frontend.onrender.com/admin');
     console.log(`   Email: ${adminEmail}`);
-    console.log(`   Password: ${adminPassword}\n`);
+    console.log('   Password: (use the value set in ADMIN_PASSWORD env var)\n');
 
   } catch (err) {
     console.error(`\n❌ Error: ${err.message}\n`);
