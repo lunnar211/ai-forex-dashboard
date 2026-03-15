@@ -52,6 +52,19 @@ The Blueprint links these automatically – you do **not** need to set them manu
 
 Go to **ai-forex-backend** service → **Environment**
 
+> **Security note:** Never put real API keys or passwords in the GitHub repository.
+> Always set secrets directly in the Render dashboard as described below.
+> The `.env.example` files in the repo show only placeholder values – they are
+> templates to guide you, not files that should contain real credentials.
+
+#### How to add a secret in the Render dashboard
+
+1. Open https://dashboard.render.com and select the **ai-forex-backend** service.
+2. Click the **Environment** tab in the left sidebar.
+3. Click **Add Environment Variable**.
+4. Enter the **Key** (e.g. `ADMIN_EMAIL`) and the **Value** (e.g. `you@example.com`).
+5. Click **Save Changes**, then **Manual Deploy → Deploy latest commit** to apply.
+
 #### Required Variables (Prompted During Blueprint Setup)
 
 - [ ] `ADMIN_EMAIL` - Your admin login email
