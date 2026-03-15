@@ -2,7 +2,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { AuthState, User } from '../types';
-import { activity } from '../services/api';
+import { activity, auth } from '../services/api';
 
 export const useAuthStore = create<AuthState>()(
   persist(
@@ -15,6 +15,10 @@ export const useAuthStore = create<AuthState>()(
       logout: () => {
         // Track logout before clearing state
         activity.track({ action: 'logout', page: 'auth' });
+        // Notify the server to revoke the JWT (best-effort — must be called
+        // before set() clears the token from localStorage so the request
+        // interceptor can still read it).
+        auth.logout();
         set({ token: null, user: null, isAuthenticated: false });
       },
     }),

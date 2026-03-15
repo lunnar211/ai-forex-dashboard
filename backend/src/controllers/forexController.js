@@ -5,6 +5,9 @@ const { pool } = require('../config/database');
 
 const CACHE_TTL = 60; // seconds
 
+// Allowed intervals for the prices endpoint
+const ALLOWED_INTERVALS = new Set(['1min', '5min', '15min', '30min', '1h', '2h', '4h', '1day', '1week']);
+
 // Map symbols to their trading category
 function getSymbolCategory(symbol) {
   const s = symbol.toUpperCase();
@@ -24,6 +27,14 @@ function getCacheKey(type, symbol, interval) {
 // GET /forex/prices?symbol=EUR/USD&interval=1h&outputsize=100
 async function getPrices(req, res) {
   const { symbol = 'EUR/USD', interval = '1h', outputsize = 100 } = req.query;
+
+  // Validate interval
+  if (!ALLOWED_INTERVALS.has(interval)) {
+    return res.status(400).json({
+      error: `Invalid interval. Allowed values: ${[...ALLOWED_INTERVALS].join(', ')}.`,
+    });
+  }
+
   const size = Math.min(Math.max(parseInt(outputsize, 10) || 100, 1), 500);
   const cacheKey = getCacheKey('ohlcv', symbol, interval);
 

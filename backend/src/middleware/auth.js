@@ -20,6 +20,19 @@ async function authMiddleware(req, res, next) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    // Check token blacklist (populated on logout when Redis is available)
+    const redis = req.app.locals.redis;
+    if (redis) {
+      try {
+        const blacklisted = await redis.get(`blacklist:${token}`);
+        if (blacklisted) {
+          return res.status(401).json({ error: 'Token has been revoked. Please log in again.' });
+        }
+      } catch {
+        // Redis failure is non-fatal — continue without blacklist check
+      }
+    }
+
     // Verify user still exists and is not blocked/restricted
     const result = await pool.query(
       'SELECT is_blocked, is_restricted FROM users WHERE id = $1',
