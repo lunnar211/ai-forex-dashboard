@@ -232,11 +232,14 @@ async function initSchema() {
 async function seedAdmin(client) {
   const adminEmail = process.env.ADMIN_EMAIL;
   const adminPassword = process.env.ADMIN_PASSWORD;
+  const adminUrl = process.env.ADMIN_URL; // ← ADDED
 
   if (!adminEmail || !adminPassword) {
     console.warn('[DB] ADMIN_EMAIL or ADMIN_PASSWORD not set — admin user not seeded.');
     return;
   }
+
+  console.log(`[DB] Admin URL: ${adminUrl || 'ADMIN_URL not set'}`); // ← ADDED
 
   const existing = await client.query(
     'SELECT id FROM users WHERE email = $1',
