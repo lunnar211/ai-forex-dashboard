@@ -63,10 +63,7 @@ services:
       - key: ALPHA_VANTAGE_API_KEY
         sync: false
       - key: CORS_ORIGIN
-        fromService:
-          type: web
-          name: ai-forex-frontend
-          property: url
+        sync: false           # Set to your frontend URL, e.g. https://ai-forex-frontend.onrender.com
       - key: AI_ENGINE_URL
         sync: false
 
@@ -79,7 +76,4 @@ services:
       - key: NODE_ENV
         value: production
       - key: NEXT_PUBLIC_API_URL
-        fromService:
-          type: web
-          name: ai-forex-backend
-          property: url
+        sync: false           # Set to your backend URL, e.g. https://ai-forex-backend.onrender.com
