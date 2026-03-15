@@ -54,8 +54,6 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false           # At least one AI key is required
-      - key: OPENAI_API_KEY
-        sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: OPENROUTER_API_KEY
