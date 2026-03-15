@@ -4,30 +4,47 @@ This checklist ensures your AI Forex Dashboard is properly configured on Render.
 
 ## Pre-Deployment
 
-- [ ] Fork the repository to your GitHub account
+- [ ] Fork the repository to your own GitHub account
 - [ ] Have your API keys ready:
   - [ ] At least one AI provider key (Groq, OpenAI, Gemini, or OpenRouter)
   - [ ] Twelve Data API key (optional, uses mock data without it)
 
 ## Initial Deployment
 
-### 1. Deploy via Blueprint
+### 1. Deploy via Blueprint (Recommended – one click)
+
+The `render.yaml` in the repo uses Docker runtime and auto-provisions PostgreSQL,
+Redis, backend, and frontend. No manual service setup required.
 
 - [ ] Go to https://dashboard.render.com/blueprints
 - [ ] Click **New Blueprint Instance**
-- [ ] Connect your GitHub repository
-- [ ] Render auto-detects `render.yaml`
-- [ ] Fill in required environment variables when prompted
-- [ ] Click **Apply** to create all services
+- [ ] Connect your GitHub repository (Render auto-detects `render.yaml`)
+- [ ] When prompted, fill in the required variables:
+  - `ADMIN_EMAIL` – your admin login email
+  - `ADMIN_PASSWORD` – your admin password (min 8 chars)
+  - At least one of `GROQ_API_KEY`, `OPENAI_API_KEY`, or `GEMINI_API_KEY`
+- [ ] Click **Apply** – Render creates all four services automatically
 
 ### 2. Services Created
 
 After blueprint deployment, verify these services exist:
 
-- [ ] **ai-forex-backend** (Web Service)
-- [ ] **ai-forex-frontend** (Web Service)
+- [ ] **ai-forex-backend** (Web Service – Docker)
+- [ ] **ai-forex-frontend** (Web Service – Docker)
 - [ ] **forex-redis** (Redis)
 - [ ] **forex-db** (PostgreSQL Database)
+
+#### Auto-Wired Variables (No Action Required)
+
+The Blueprint links these automatically – you do **not** need to set them manually:
+
+| Variable | Source |
+|---|---|
+| `DATABASE_URL` | Auto-linked to **forex-db** |
+| `REDIS_URL` | Auto-linked to **forex-redis** |
+| `JWT_SECRET` | Auto-generated secure secret |
+| `CORS_ORIGIN` | Auto-linked to frontend URL |
+| `NEXT_PUBLIC_API_URL` | Auto-linked to backend URL |
 
 ## Post-Deployment Configuration
 
@@ -35,7 +52,7 @@ After blueprint deployment, verify these services exist:
 
 Go to **ai-forex-backend** service → **Environment**
 
-#### Required Variables (Must Set)
+#### Required Variables (Prompted During Blueprint Setup)
 
 - [ ] `ADMIN_EMAIL` - Your admin login email
 
@@ -53,20 +70,13 @@ Go to **ai-forex-backend** service → **Environment**
   - Without this, the app uses realistic mock data
   - Free tier: 800 API calls/day
 
-#### Auto-Generated Variables (Already Set)
-
-- [ ] `DATABASE_URL` - Auto-linked to postgres database
-- [ ] `REDIS_URL` - Auto-linked to Redis instance
-- [ ] `JWT_SECRET` - Auto-generated secure secret
-- [ ] `CORS_ORIGIN` - Auto-linked to frontend URL
-
 ### 4. Restart Backend Service
 
 After setting environment variables:
 
 - [ ] Click **Manual Deploy** → **Deploy latest commit**
 - [ ] Or use **Restart** button
-- [ ] Wait 2-3 minutes for deployment to complete
+- [ ] Wait 3-5 minutes for Docker image to build and deploy
 
 ### 5. Verify Backend Logs
 
