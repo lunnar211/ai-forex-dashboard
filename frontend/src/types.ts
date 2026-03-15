@@ -43,8 +43,8 @@ export interface Indicators {
     ema200: number;
   };
   supportResistance: {
-    support: number;
-    resistance: number;
+    support: number[];
+    resistance: number[];
   };
   atr: number;
   volumeTrend: string;
