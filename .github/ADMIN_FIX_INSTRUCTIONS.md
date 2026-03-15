@@ -1,9 +1,12 @@
 # How to Fix Admin Panel Access
 
 ## Your Credentials
+
+Set the following in the Render dashboard — do **not** hardcode them in any file:
+
 ```
-Email: dipeshkarki6612@gmail.com
-Password: Mac@2019$$
+ADMIN_EMAIL=<your admin email>
+ADMIN_PASSWORD=<your admin password>
 ```
 
 ## Step-by-Step Fix
@@ -21,15 +24,15 @@ In the left sidebar, click **Environment**
 ### Step 4: Add Admin Email
 1. Click **Add Environment Variable**
 2. In the "Key" field, type: `ADMIN_EMAIL`
-3. In the "Value" field, type: `dipeshkarki6612@gmail.com`
+3. In the "Value" field, enter your admin email address.
 4. Click **Save**
 
 ### Step 5: Add Admin Password
 1. Click **Add Environment Variable** again
 2. In the "Key" field, type: `ADMIN_PASSWORD`
-3. In the "Value" field, type: `Mac@2019$$`
-   - **Important**: Type it exactly as shown with the double `$$`
-   - If it doesn't work, try wrapping it: `'Mac@2019$$'`
+3. In the "Value" field, enter your chosen admin password.
+   - **Important**: Type it exactly as you want it set.
+   - If your password contains special characters, try wrapping it in single quotes when using a shell.
 4. Click **Save**
 
 ### Step 6: Wait for Redeploy
@@ -55,8 +58,8 @@ If you see either of these messages, you're good to go!
 1. Open a new browser tab
 2. Go to: https://ai-forex-frontend.onrender.com/admin
 3. Enter:
-   - Email: `dipeshkarki6612@gmail.com`
-   - Password: `Mac@2019$$`
+   - Email: the value you set for `ADMIN_EMAIL` in Render
+   - Password: the value you set for `ADMIN_PASSWORD` in Render
 4. Click **Sign In to Admin Panel**
 
 You should now see the admin dashboard!
@@ -78,7 +81,7 @@ After successful login:
 **Solutions**:
 1. Double-check the spelling of `ADMIN_EMAIL` and `ADMIN_PASSWORD` (exact match)
 2. Make sure there are no extra spaces before or after the values
-3. Try wrapping the password in single quotes: `'Mac@2019$$'`
+3. Try wrapping the password in single quotes: `'YourAdminPassword123!'`
 4. Restart the backend service manually:
    - Go to backend service dashboard
    - Click **Manual Deploy** → **Deploy latest commit**
@@ -106,7 +109,7 @@ After successful login:
    - Go to your **forex-db** database on Render
    - Click **Connect** tab
    - Use a PostgreSQL client to connect
-   - Run: `SELECT * FROM users WHERE email = 'dipeshkarki6612@gmail.com';`
+   - Run: `SELECT * FROM users WHERE email = '<your ADMIN_EMAIL value>';`
    - Verify `is_admin` column is TRUE
 
 3. **Contact Support**:

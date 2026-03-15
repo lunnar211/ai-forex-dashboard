@@ -1,8 +1,10 @@
 # Quick Fix for Admin Panel Access
 
 ## Your Credentials
-- Email: `dipeshkarki6612@gmail.com`
-- Password: `Mac@2019$$`
+
+Use the values you set in the Render dashboard:
+- Email: the value of `ADMIN_EMAIL` (set in Render environment variables)
+- Password: the value of `ADMIN_PASSWORD` (set in Render environment variables)
 
 ## Steps to Fix (5 minutes)
 
@@ -22,16 +24,16 @@ Add these two variables:
 **Variable 1:**
 ```
 Key: ADMIN_EMAIL
-Value: dipeshkarki6612@gmail.com
+Value: <your admin email address>
 ```
 
 **Variable 2:**
 ```
 Key: ADMIN_PASSWORD
-Value: Mac@2019$$
+Value: <your admin password>
 ```
 
-**IMPORTANT:** When entering the password, type it exactly as shown including the double `$$` at the end. If you have issues, try wrapping it in single quotes: `'Mac@2019$$'`
+**IMPORTANT:** When entering the password, type it exactly as you configured it in the Render dashboard. If your password contains special characters such as `$`, try wrapping the value in single quotes when using a shell.
 
 ### 3. Save and Deploy
 
@@ -60,8 +62,8 @@ If you see either message, you're good to go!
 Go to: https://ai-forex-frontend.onrender.com/admin
 
 Enter:
-- Email: `dipeshkarki6612@gmail.com`
-- Password: `Mac@2019$$`
+- Email: the value you set for `ADMIN_EMAIL` in Render
+- Password: the value you set for `ADMIN_PASSWORD` in Render
 
 Click **Sign In to Admin Panel**
 
@@ -69,11 +71,11 @@ Click **Sign In to Admin Panel**
 
 ### Option A: Check for Special Character Issues
 
-The `$$` in your password might be causing issues. Try these alternatives:
+If your password contains special characters (e.g. `$`, `!`, `@`), they may cause issues in shell contexts. Try these alternatives:
 
-1. In Render environment variables, wrap the password in single quotes:
+1. In Render environment variables, wrap the password in single quotes if using the shell:
    ```
-   ADMIN_PASSWORD='Mac@2019$$'
+   ADMIN_PASSWORD='YourStrongPassword!'
    ```
 
 2. Or temporarily change to a simpler password like:
@@ -107,12 +109,12 @@ As a last resort, connect to your PostgreSQL database directly:
 4. Run this query to verify admin status:
    ```sql
    SELECT id, email, is_admin, is_blocked FROM users
-   WHERE email = 'dipeshkarki6612@gmail.com';
+   WHERE email = '<your ADMIN_EMAIL value>';
    ```
 5. If `is_admin` is FALSE, run:
    ```sql
    UPDATE users SET is_admin = TRUE, is_blocked = FALSE
-   WHERE email = 'dipeshkarki6612@gmail.com';
+   WHERE email = '<your ADMIN_EMAIL value>';
    ```
 
 ## Need More Help?

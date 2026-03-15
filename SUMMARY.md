@@ -1,9 +1,7 @@
 # Admin Panel Fix Summary
 
 ## Problem
-Admin panel at https://ai-forex-frontend.onrender.com/admin showing access errors when trying to log in with credentials:
-- Email: dipeshkarki6612@gmail.com
-- Password: Mac@2019$$
+Admin panel at https://ai-forex-frontend.onrender.com/admin showing access errors when trying to log in. The admin credentials (`ADMIN_EMAIL` / `ADMIN_PASSWORD`) were not set as environment variables on the Render deployment.
 
 ## Root Cause
 The backend environment variables `ADMIN_EMAIL` and `ADMIN_PASSWORD` are not configured on your Render deployment. Without these variables, the admin user account is not created in the database.
@@ -19,10 +17,10 @@ The backend environment variables `ADMIN_EMAIL` and `ADMIN_PASSWORD` are not con
    - Go to **Environment** tab
    - Add these two variables:
      ```
-     ADMIN_EMAIL=dipeshkarki6612@gmail.com
-     ADMIN_PASSWORD=Mac@2019$$
+     ADMIN_EMAIL=<your admin email>
+     ADMIN_PASSWORD=<your admin password>
      ```
-   - If the `$$` causes issues, wrap in single quotes: `'Mac@2019$$'`
+   - If your password contains special characters such as `$`, wrap in single quotes when using a shell.
 4. **Save and Wait**: Render will auto-redeploy (takes 2-3 minutes)
 5. **Verify in Logs**: Look for `[DB] Admin user seeded.`
 6. **Test Login**: Go to https://ai-forex-frontend.onrender.com/admin
@@ -98,8 +96,8 @@ npm run verify-admin
 ```
 
 ### Option 2: Check for Special Characters
-The `$$` in your password might need escaping. Try:
-- Wrapping in single quotes: `'Mac@2019$$'`
+If your password contains special characters (e.g. `$`), they may need escaping in shell contexts. Try:
+- Wrapping in single quotes when using a shell: `'YourStrongPassword!'`
 - Or temporarily use a simpler password: `TempAdmin123!`
 
 ### Option 3: Manual Database Check
@@ -107,7 +105,7 @@ Connect to your PostgreSQL database and verify:
 ```sql
 SELECT id, email, is_admin, is_blocked
 FROM users
-WHERE email = 'dipeshkarki6612@gmail.com';
+WHERE email = '<your ADMIN_EMAIL value>';
 ```
 
 If `is_admin` is FALSE or user doesn't exist, the environment variables aren't being read properly.
