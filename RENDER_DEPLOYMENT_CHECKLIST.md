@@ -156,7 +156,7 @@ Check logs for errors:
 **Error: Invalid email or password**
 - Verify `ADMIN_EMAIL` exactly matches what you're typing
 - Check `ADMIN_PASSWORD` for special characters
-- Try wrapping password in single quotes: `'Mac@2019$$'`
+- Try wrapping password in single quotes: `'YourAdminPassword123!'`
 - Restart backend service after setting variables
 
 **Error: Access denied. Admin privileges required**
