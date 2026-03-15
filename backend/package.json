@@ -4,7 +4,8 @@
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",
-    "dev": "nodemon src/index.js"
+    "dev": "nodemon src/index.js",
+    "verify-admin": "node scripts/verify-admin.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.2.1",

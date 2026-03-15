@@ -98,6 +98,8 @@ npm run dev                   # starts on http://localhost:3000
 | `GROQ_API_KEY` | ⚠️ one required | Groq AI provider key |
 | `OPENAI_API_KEY` | ⚠️ one required | OpenAI provider key |
 | `GEMINI_API_KEY` | ⚠️ one required | Google Gemini provider key |
+| `ADMIN_EMAIL` | ✅ | Admin panel login email |
+| `ADMIN_PASSWORD` | ✅ | Admin panel login password (min 8 chars) |
 | `TWELVE_DATA_API_KEY` | optional | Real-time forex data; uses mock data if unset |
 | `REDIS_URL` | optional | Redis connection URL; caching disabled if unset |
 | `CORS_ORIGIN` | optional | Allowed CORS origin(s); defaults to `*` |
@@ -109,6 +111,50 @@ npm run dev                   # starts on http://localhost:3000
 | Variable | Required | Description |
 |---|---|---|
 | `NEXT_PUBLIC_API_URL` | optional | Backend API URL; defaults to `http://localhost:5000` |
+
+---
+
+## Admin Panel
+
+The application includes a secure admin panel for managing users and monitoring activity.
+
+### Accessing the Admin Panel
+
+1. **Set up admin credentials** in your backend environment variables:
+   ```
+   ADMIN_EMAIL=your-admin-email@example.com
+   ADMIN_PASSWORD=your-secure-password
+   ```
+
+2. **Restart your backend service** to create/update the admin user
+
+3. **Access the admin panel** at `/admin`:
+   - Local: http://localhost:3000/admin
+   - Production: https://your-frontend-url.onrender.com/admin
+
+### Admin Features
+
+- View all registered users
+- Create new user accounts
+- Block/unblock users
+- Delete non-admin accounts
+- View system statistics (total users, predictions, active users)
+- Monitor user activity logs (logins, registrations)
+- Auto-refresh activity feed
+
+### Troubleshooting Admin Access
+
+If you cannot log in to the admin panel:
+
+1. **Verify environment variables are set** on your backend service
+2. **Check backend logs** for admin user seeding confirmation
+3. **Run the verification script**:
+   ```bash
+   cd backend
+   npm run verify-admin
+   ```
+
+For detailed troubleshooting, see [ADMIN_SETUP.md](ADMIN_SETUP.md)
 
 ---
 
