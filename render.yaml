@@ -28,11 +28,17 @@ services:
         sync: false           # Required: Redis connection string (external service)
       - key: JWT_SECRET
         sync: false
+      - key: ADMIN_EMAIL
+        sync: false           # Required: admin panel login email
+      - key: ADMIN_PASSWORD
+        sync: false           # Required: admin panel login password
       - key: OPENAI_API_KEY
         sync: false
       - key: GROQ_API_KEY
         sync: false
       - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
         sync: false
       - key: TWELVE_DATA_API_KEY
         sync: false

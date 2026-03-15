@@ -6,7 +6,7 @@ This checklist ensures your AI Forex Dashboard is properly configured on Render.
 
 - [ ] Fork the repository to your GitHub account
 - [ ] Have your API keys ready:
-  - [ ] At least one AI provider key (Groq, OpenAI, or Gemini)
+  - [ ] At least one AI provider key (Groq, OpenAI, Gemini, or OpenRouter)
   - [ ] Twelve Data API key (optional, uses mock data without it)
 
 ## Initial Deployment
@@ -38,20 +38,14 @@ Go to **ai-forex-backend** service → **Environment**
 #### Required Variables (Must Set)
 
 - [ ] `ADMIN_EMAIL` - Your admin login email
-  ```
-  Example: dipeshkarki6612@gmail.com
-  ```
 
 - [ ] `ADMIN_PASSWORD` - Your admin password (min 8 chars)
-  ```
-  Example: Mac@2019$$
-  Note: Use single quotes if it contains special chars: 'Mac@2019$$'
-  ```
 
 - [ ] At least ONE AI provider key:
   - [ ] `GROQ_API_KEY` - Get from https://console.groq.com
   - [ ] `OPENAI_API_KEY` - Get from https://platform.openai.com
   - [ ] `GEMINI_API_KEY` - Get from https://makersuite.google.com/app/apikey
+  - [ ] `OPENROUTER_API_KEY` - Get from https://openrouter.ai/settings/keys
 
 #### Optional Variables (Recommended)
 
@@ -150,7 +144,7 @@ Check logs for errors:
 ### AI Predictions Fail
 
 **Error: No AI provider key configured**
-- Set at least one of: `GROQ_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`
+- Set at least one of: `GROQ_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`
 - Restart backend service
 
 **AI returns generic responses**

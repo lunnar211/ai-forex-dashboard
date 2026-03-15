@@ -13,11 +13,11 @@ The admin panel at https://ai-forex-frontend.onrender.com/admin requires proper 
 4. Add or update these environment variables:
 
 ```
-ADMIN_EMAIL=dipeshkarki6612@gmail.com
-ADMIN_PASSWORD=Mac@2019$$
+ADMIN_EMAIL=your-admin@example.com
+ADMIN_PASSWORD=your-secure-password
 ```
 
-**IMPORTANT:** When entering the password `Mac@2019$$`, make sure to type it exactly as shown. The double `$$` at the end is important.
+**IMPORTANT:** When entering the password, make sure to type it exactly. If it contains special characters such as `$`, wrap the value in single quotes in shell contexts but enter the raw value in the Render UI.
 
 ### Step 2: Restart the Backend Service
 
@@ -39,8 +39,8 @@ After the backend restarts, check the logs:
 
 1. Go to https://ai-forex-frontend.onrender.com/admin
 2. Enter:
-   - Email: `dipeshkarki6612@gmail.com`
-   - Password: `Mac@2019$$`
+   - Email: the `ADMIN_EMAIL` you configured
+   - Password: the `ADMIN_PASSWORD` you configured
 3. Click **Sign In to Admin Panel**
 
 ## Troubleshooting
@@ -50,13 +50,13 @@ After the backend restarts, check the logs:
 The password might have special character issues. Here's what to check:
 
 1. **Check for escaping issues**: If the password contains `$`, it might be interpreted as a shell variable
-2. **Solution**: In Render's environment variables, try wrapping the value in single quotes: `'Mac@2019$$'`
+2. **Solution**: In Render's environment variables, try wrapping the value in single quotes in shell contexts, but enter the raw value directly in the Render UI
 
 ### If you see "Access denied. Admin privileges required"
 
 This means the user exists but doesn't have admin privileges. To fix:
 
-1. Check that `ADMIN_EMAIL` exactly matches: `dipeshkarki6612@gmail.com`
+1. Check that `ADMIN_EMAIL` exactly matches the email you entered in Render's environment variables
 2. Restart the backend service again
 3. The `seedAdmin` function will automatically grant admin privileges
 
@@ -71,10 +71,10 @@ As a last resort, you can manually create the admin user via Render's PostgreSQL
 
 ```sql
 -- First, check if user exists
-SELECT id, email, is_admin FROM users WHERE email = 'dipeshkarki6612@gmail.com';
+SELECT id, email, is_admin FROM users WHERE email = 'your-admin@example.com';
 
 -- If user exists but is_admin is FALSE, update it:
-UPDATE users SET is_admin = TRUE WHERE email = 'dipeshkarki6612@gmail.com';
+UPDATE users SET is_admin = TRUE WHERE email = 'your-admin@example.com';
 
 -- If user doesn't exist, you'll need to hash the password first
 -- (Better to let the backend app create it via environment variables)
