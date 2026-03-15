@@ -56,6 +56,13 @@ async function geoLookup(ip, redis) {
   if (!ip || ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.')) {
     return { country: null, country_code: null, city: null, region: null, isp: null, latitude: null, longitude: null };
   }
+  // Check 172.16.0.0–172.31.255.255 private range
+  if (ip.startsWith('172.')) {
+    const second = parseInt(ip.split('.')[1], 10);
+    if (second >= 16 && second <= 31) {
+      return { country: null, country_code: null, city: null, region: null, isp: null, latitude: null, longitude: null };
+    }
+  }
 
   const cacheKey = `geo:${ip}`;
 

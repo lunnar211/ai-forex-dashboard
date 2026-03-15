@@ -663,7 +663,7 @@ export default function AdminDashboard() {
                           {!item.symbol && !item.page && '\u2014'}
                         </td>
                         <td className="px-4 py-3 text-[#475569] text-xs">
-                          {item.browser || item.os ? `${item.browser ?? ''} · ${item.os ?? ''}`.replace(/^ · | · $/, '') : '\u2014'}
+                          {[item.browser, item.os].filter(Boolean).join(' · ') || '\u2014'}
                         </td>
                       </tr>
                     ))}
@@ -1011,7 +1011,7 @@ export default function AdminDashboard() {
                                 )}
                               </td>
                               <td className="px-4 py-3 text-[#475569] text-xs">
-                                {login.browser || login.os ? `${login.browser ?? ''} / ${login.os ?? ''}`.replace(/^\/ | \/\s*$/, '') : '\u2014'}
+                                {[login.browser, login.os].filter(Boolean).join(' / ') || '\u2014'}
                               </td>
                               <td className="px-4 py-3">
                                 {login.is_blocked

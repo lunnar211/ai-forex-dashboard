@@ -278,6 +278,13 @@ export default function Platforms() {
     setChartError('');
   }
 
+  function handleTimeframeChange(tf: string) {
+    setTimeframe(tf as Timeframe);
+    if (selectedSymbol) {
+      activity.track({ action: 'timeframe_change', page: 'platforms', symbol: selectedSymbol, timeframe: tf });
+    }
+  }
+
   if (!mounted || !isAuthenticated) return null;
 
   const colors = CATEGORY_COLORS[selectedCategory.color];
@@ -380,10 +387,7 @@ export default function Platforms() {
                   {TIMEFRAMES.map((tf) => (
                     <button
                       key={tf.value}
-                      onClick={() => {
-                        setTimeframe(tf.value);
-                        if (selectedSymbol) activity.track({ action: 'timeframe_change', page: 'platforms', symbol: selectedSymbol, timeframe: tf.value });
-                      }}
+                      onClick={() => handleTimeframeChange(tf.value)}
                       className={clsx(
                         'px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150',
                         timeframe === tf.value

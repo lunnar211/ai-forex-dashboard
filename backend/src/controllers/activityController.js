@@ -17,7 +17,7 @@ const ALLOWED_ACTIONS = new Set([
  * POST /activity
  * Accepts a tracking event from the authenticated frontend client.
  */
-async function trackActivity(req, res) {
+function trackActivity(req, res) {
   const { action, page, symbol, timeframe, prediction_direction, prediction_confidence, metadata } = req.body;
 
   if (!action || !ALLOWED_ACTIONS.has(action)) {
@@ -29,12 +29,12 @@ async function trackActivity(req, res) {
   const ua = req.headers['user-agent'] || null;
   const { device_type, browser, os } = parseUserAgent(ua);
 
-  // Geo lookup is async and non-blocking for the response
-  const redis = req.app.locals.redis;
-  const geo = await geoLookup(ip, redis);
+  // Respond immediately — geo lookup and DB write are fire-and-forget
+  res.status(204).send();
 
-  try {
-    await pool.query(
+  const redis = req.app.locals.redis;
+  geoLookup(ip, redis).then((geo) => {
+    pool.query(
       `INSERT INTO user_activity
          (user_id, action, page, symbol, timeframe, prediction_direction, prediction_confidence,
           ip_address, country, country_code, city, region, isp, latitude, longitude,
@@ -62,17 +62,12 @@ async function trackActivity(req, res) {
         os,
         metadata ? JSON.stringify(metadata) : null,
       ]
-    );
+    ).catch((err) => console.error('[ActivityController] DB insert failed:', err.message));
 
     // Update last_active (non-blocking)
     pool.query('UPDATE users SET last_active = NOW() WHERE id = $1', [userId])
       .catch((err) => console.error('[Activity] Failed to update last_active:', err.message));
-
-    return res.status(204).send();
-  } catch (err) {
-    console.error('[ActivityController] trackActivity error:', err.message);
-    return res.status(500).json({ error: 'Failed to record activity.' });
-  }
+  }).catch((err) => console.error('[ActivityController] geo lookup failed:', err.message));
 }
 
 module.exports = { trackActivity };
