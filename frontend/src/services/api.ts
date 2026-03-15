@@ -35,6 +35,21 @@ apiClient.interceptors.response.use(
   }
 );
 
+export const activity = {
+  track: (data: {
+    action: string;
+    page?: string;
+    symbol?: string;
+    timeframe?: string;
+    prediction_direction?: string;
+    prediction_confidence?: number;
+    metadata?: Record<string, unknown>;
+  }) =>
+    apiClient.post('/activity', data).catch(() => {
+      // activity tracking is non-critical — silently ignore failures
+    }),
+};
+
 export const auth = {
   register: (email: string, password: string, name?: string) =>
     apiClient.post('/auth/register', { email, password, name }).then((r) => r.data),
@@ -103,6 +118,17 @@ export const admin = {
 
   getOnlineUsers: (token: string) =>
     apiClient.get('/admin/online-users', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data),
+
+  getPredictions: (token: string, limit?: number, offset?: number, symbol?: string) =>
+    apiClient
+      .get('/admin/predictions', {
+        params: { limit, offset, symbol },
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((r) => r.data),
+
+  getSecurityEvents: (token: string) =>
+    apiClient.get('/admin/security', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data),
 };
 
 interface BackendCandle {

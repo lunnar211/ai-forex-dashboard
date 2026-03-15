@@ -12,7 +12,7 @@ function getClient() {
 }
 
 function buildTradingPrompt(symbol, timeframe, indicators, priceData) {
-  return `You are a senior professional forex analyst and algorithmic trading specialist with over 15 years of experience in institutional trading. Analyse the following market data and provide a precise, data-driven trading prediction.
+  return `You are a master trading analyst with 20+ years on institutional trading desks at top-tier hedge funds and investment banks. You have deep expertise in technical analysis, market microstructure, and quantitative methods.
 
 INSTRUMENT: ${symbol}
 TIMEFRAME: ${timeframe}
@@ -24,18 +24,21 @@ TECHNICAL INDICATORS:
 ─────────────────────────────────────────
 RSI (14): ${indicators.rsi}
   → ${indicators.rsi > 70 ? 'OVERBOUGHT — potential reversal or pullback' : indicators.rsi < 30 ? 'OVERSOLD — potential bounce or reversal' : 'NEUTRAL — no extreme reading'}
+  → Check for divergence: if price makes new high/low but RSI does not, signal weakens
 
 MACD:
   MACD Line  : ${indicators.macd?.macd}
   Signal Line: ${indicators.macd?.signal}
   Histogram  : ${indicators.macd?.histogram}
   → ${(indicators.macd?.histogram || 0) > 0 ? 'Bullish momentum — histogram above zero' : 'Bearish momentum — histogram below zero'}
+  → Histogram expanding = strengthening momentum; contracting = weakening momentum
 
 Bollinger Bands:
   Upper : ${indicators.bollinger?.upper}
   Middle: ${indicators.bollinger?.middle}  (20-SMA)
   Lower : ${indicators.bollinger?.lower}
-  → Price is ${indicators.currentPrice > (indicators.bollinger?.upper || 0) ? 'ABOVE upper band (overbought / breakout)' : indicators.currentPrice < (indicators.bollinger?.lower || 0) ? 'BELOW lower band (oversold / breakdown)' : 'INSIDE bands (mean-reverting environment)'}
+  → Price is ${indicators.currentPrice > (indicators.bollinger?.upper || 0) ? 'ABOVE upper band (overbought / breakout candidate)' : indicators.currentPrice < (indicators.bollinger?.lower || 0) ? 'BELOW lower band (oversold / breakdown candidate)' : 'INSIDE bands (mean-reverting environment)'}
+  → Band width indicates volatility; squeeze = potential explosive move ahead
 
 Exponential Moving Averages:
   EMA 20 : ${indicators.ema?.ema20}
@@ -44,6 +47,7 @@ Exponential Moving Averages:
   → Short-term trend : ${indicators.currentPrice > (indicators.ema?.ema20 || 0) ? 'BULLISH' : 'BEARISH'}
   → Medium-term trend: ${indicators.currentPrice > (indicators.ema?.ema50 || 0) ? 'BULLISH' : 'BEARISH'}
   → Long-term trend  : ${indicators.currentPrice > (indicators.ema?.ema200 || 0) ? 'BULLISH' : 'BEARISH'}
+  → EMA alignment (20>50>200 = bullish stack; 20<50<200 = bearish stack)
 
 ATR (14): ${indicators.atr}  [volatility / stop-distance reference]
 Volume  : ${indicators.volumeTrend}
@@ -55,13 +59,16 @@ KEY LEVELS:
 RECENT PRICE ACTION (last 5 closes):
 ${JSON.stringify(priceData.slice(-5).map((c) => ({ open: c.open, high: c.high, low: c.low, close: c.close })), null, 2)}
 
-TASK:
-Based on a comprehensive multi-factor analysis of all indicators above, determine:
-1. The most probable near-term directional bias (BUY / SELL / HOLD).
-2. A confidence score (0–100) reflecting the conviction level.
-3. Precise entry price, stop-loss, and take-profit targets using ATR-based methodology.
-4. A concise but professional reasoning narrative (3–5 sentences) covering confluence factors.
-5. Key risks that could invalidate this setup.
+ANALYSIS REQUIREMENTS:
+Perform a comprehensive multi-factor analysis covering:
+1. Multi-timeframe trend alignment (short/medium/long term)
+2. Key support/resistance levels and their strength
+3. RSI divergence detection (regular and hidden)
+4. MACD signal quality and momentum assessment
+5. Bollinger Band squeeze/expansion analysis
+6. EMA crossover signals and trend strength
+7. ATR-based position sizing (minimum 1:2 risk/reward)
+8. Risk/reward ratio calculation
 
 Respond ONLY with valid JSON in the following exact structure — no markdown, no prose outside JSON:
 {
@@ -71,10 +78,10 @@ Respond ONLY with valid JSON in the following exact structure — no markdown, n
   "stopLoss": <number>,
   "takeProfit": <number>,
   "riskRewardRatio": <number>,
-  "reasoning": "<professional multi-sentence analysis>",
-  "keyRisks": "<brief description of invalidation risks>",
+  "reasoning": "<professional multi-sentence analysis covering multi-timeframe confluence, key levels, and indicator signals>",
+  "keyRisks": "<brief description of what would invalidate this setup>",
   "marketBias": "BULLISH" | "BEARISH" | "NEUTRAL",
-  "timeHorizon": "<estimated trade duration>",
+  "timeHorizon": "<estimated trade duration based on timeframe>",
   "disclaimer": "For educational purposes only. Not financial advice."
 }`;
 }
@@ -133,7 +140,7 @@ async function getAIPrediction(symbol, timeframe, indicators, priceData) {
       {
         role: 'system',
         content:
-          'You are a professional forex trading analyst. Always respond with valid JSON only. No markdown, no extra text.',
+          'You are a master trading analyst with institutional-level expertise. Always respond with valid JSON only. No markdown, no extra text.',
       },
       { role: 'user', content: prompt },
     ],

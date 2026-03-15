@@ -4,6 +4,52 @@ import { useRouter } from 'next/router';
 import { admin } from '../../services/api';
 import type { MarketInterestRow, ToolUsageRow, OnlineUser } from '../../types';
 
+interface PredictionRecord {
+  id: number;
+  symbol: string;
+  timeframe: string;
+  direction: string;
+  confidence: number | null;
+  entry_price: number | null;
+  stop_loss: number | null;
+  take_profit: number | null;
+  ai_provider: string;
+  created_at: string;
+  user_id: number;
+  email: string;
+  name: string | null;
+}
+
+interface SecurityLoginRecord {
+  id: number;
+  action: string;
+  ip_address: string | null;
+  country: string | null;
+  country_code: string | null;
+  city: string | null;
+  browser: string | null;
+  os: string | null;
+  device_type: string | null;
+  created_at: string;
+  user_id: number;
+  email: string;
+  name: string | null;
+  is_blocked: boolean;
+}
+
+interface TopIPRecord {
+  ip_address: string;
+  requests: string;
+  unique_users: string;
+  last_seen: string;
+}
+
+interface SecurityData {
+  recentLogins: SecurityLoginRecord[];
+  blockedUsers: Array<{ id: number; email: string; name: string | null; created_at: string; last_active: string | null }>;
+  topIPs: TopIPRecord[];
+}
+
 interface AdminUser {
   id: number;
   email: string;
@@ -24,8 +70,21 @@ interface Stats {
 interface ActivityRecord {
   id: number;
   action: string;
+  page: string | null;
+  symbol: string | null;
+  timeframe: string | null;
+  prediction_direction: string | null;
+  prediction_confidence: number | null;
   ip_address: string | null;
+  country: string | null;
+  country_code: string | null;
+  city: string | null;
+  region: string | null;
+  isp: string | null;
   user_agent: string | null;
+  device_type: string | null;
+  browser: string | null;
+  os: string | null;
   metadata: Record<string, string> | null;
   created_at: string;
   user_id: number;
@@ -45,7 +104,7 @@ interface UserDetails {
   }>;
 }
 
-type ActiveTab = 'users' | 'activity' | 'analytics' | 'online';
+type ActiveTab = 'users' | 'activity' | 'analytics' | 'online' | 'predictions' | 'security';
 
 const ACTION_COLORS: Record<string, string> = {
   login: 'bg-blue-900/40 text-blue-400',
@@ -77,6 +136,15 @@ export default function AdminDashboard() {
   // Online users state
   const [onlineUsers, setOnlineUsers] = useState<OnlineUser[]>([]);
   const [loadingOnline, setLoadingOnline] = useState(false);
+
+  // Predictions state
+  const [predictions, setPredictions] = useState<PredictionRecord[]>([]);
+  const [predictionsTotal, setPredictionsTotal] = useState(0);
+  const [loadingPredictions, setLoadingPredictions] = useState(false);
+
+  // Security state
+  const [securityData, setSecurityData] = useState<SecurityData | null>(null);
+  const [loadingSecurity, setLoadingSecurity] = useState(false);
 
   // User details modal
   const [detailsUser, setDetailsUser] = useState<UserDetails | null>(null);
@@ -175,6 +243,33 @@ export default function AdminDashboard() {
     }
   }, [token]);
 
+  const loadPredictions = useCallback(async () => {
+    if (!token) return;
+    setLoadingPredictions(true);
+    try {
+      const data = await admin.getPredictions(token, 100);
+      setPredictions(data.predictions ?? []);
+      setPredictionsTotal(data.total ?? 0);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load predictions');
+    } finally {
+      setLoadingPredictions(false);
+    }
+  }, [token]);
+
+  const loadSecurity = useCallback(async () => {
+    if (!token) return;
+    setLoadingSecurity(true);
+    try {
+      const data = await admin.getSecurityEvents(token);
+      setSecurityData(data);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load security data');
+    } finally {
+      setLoadingSecurity(false);
+    }
+  }, [token]);
+
   useEffect(() => {
     if (!token) return;
     loadUsers();
@@ -203,6 +298,16 @@ export default function AdminDashboard() {
     const id = setInterval(loadActivity, 30_000);
     return () => clearInterval(id);
   }, [token, activeTab, loadActivity]);
+
+  useEffect(() => {
+    if (!token || activeTab !== 'predictions') return;
+    loadPredictions();
+  }, [token, activeTab, loadPredictions]);
+
+  useEffect(() => {
+    if (!token || activeTab !== 'security') return;
+    loadSecurity();
+  }, [token, activeTab, loadSecurity]);
 
   async function handleCreateUser(e: FormEvent) {
     e.preventDefault();
@@ -342,7 +447,9 @@ export default function AdminDashboard() {
               { id: 'users' as ActiveTab, label: 'Users' },
               { id: 'activity' as ActiveTab, label: 'Activity Log', dot: true },
               { id: 'analytics' as ActiveTab, label: 'Analytics' },
+              { id: 'predictions' as ActiveTab, label: 'Predictions' },
               { id: 'online' as ActiveTab, label: 'Online Now', dot: true },
+              { id: 'security' as ActiveTab, label: 'Security' },
             ]
           ).map((tab) => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
@@ -498,7 +605,7 @@ export default function AdminDashboard() {
                 <p className="text-xs text-[#475569] mt-0.5">Auto-refreshes every 30 seconds &middot; IP = user location</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                {(['all', 'login', 'register', 'market_view', 'tool_use'] as const).map((f) => (
+                {(['all', 'login', 'register', 'market_view', 'tool_use', 'page_view', 'symbol_view', 'prediction_request', 'logout'] as const).map((f) => (
                   <button key={f} onClick={() => setActivityFilter(f)}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${
                       activityFilter === f ? 'bg-blue-600 text-white border-blue-600' : 'bg-[#0f172a] text-[#94a3b8] border-[#334155] hover:text-white'}`}>
@@ -521,7 +628,7 @@ export default function AdminDashboard() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[#334155]">
-                      {['Time', 'Action', 'User', 'IP / Location', 'Details', 'Browser / Device'].map((h) => (
+                      {['Time', 'Action', 'User', 'Location', 'Symbol / Page', 'Device'].map((h) => (
                         <th key={h} className="text-left px-4 py-3 text-[#475569] text-xs font-semibold uppercase tracking-wider">{h}</th>
                       ))}
                     </tr>
@@ -532,21 +639,31 @@ export default function AdminDashboard() {
                         <td className="px-4 py-3 text-[#475569] text-xs whitespace-nowrap">{new Date(item.created_at).toLocaleString()}</td>
                         <td className="px-4 py-3">
                           <span className={`px-2 py-0.5 rounded text-xs font-bold ${ACTION_COLORS[item.action] ?? 'bg-[#334155] text-[#94a3b8]'}`}>
-                            {item.action.replace('_', ' ').toUpperCase()}
+                            {item.action.replace(/_/g, ' ').toUpperCase()}
                           </span>
                         </td>
                         <td className="px-4 py-3">
                           <p className="text-white text-xs">{item.name || '\u2014'}</p>
                           <p className="text-[#475569] text-xs">{item.email}</p>
                         </td>
-                        <td className="px-4 py-3 text-[#475569] font-mono text-xs">{item.ip_address || '\u2014'}</td>
-                        <td className="px-4 py-3 text-[#475569] text-xs">
-                          {item.metadata
-                            ? Object.entries(item.metadata).map(([k, v]) => `${k}: ${v}`).join(' \u00b7 ')
-                            : '\u2014'}
+                        <td className="px-4 py-3 text-xs">
+                          {item.country ? (
+                            <>
+                              <p className="text-white">{item.city ? `${item.city}, ` : ''}{item.country}</p>
+                              <p className="text-[#475569] font-mono">{item.ip_address || '\u2014'}</p>
+                            </>
+                          ) : (
+                            <span className="text-[#475569] font-mono">{item.ip_address || '\u2014'}</span>
+                          )}
                         </td>
-                        <td className="px-4 py-3 text-[#475569] text-xs max-w-xs truncate" title={item.user_agent || undefined}>
-                          {item.user_agent || '\u2014'}
+                        <td className="px-4 py-3 text-[#475569] text-xs">
+                          {item.symbol && <span className="text-white font-mono font-semibold">{item.symbol}</span>}
+                          {item.timeframe && <span className="text-[#94a3b8] ml-1">{item.timeframe}</span>}
+                          {!item.symbol && item.page && <span className="text-[#94a3b8]">/{item.page}</span>}
+                          {!item.symbol && !item.page && '\u2014'}
+                        </td>
+                        <td className="px-4 py-3 text-[#475569] text-xs">
+                          {item.browser || item.os ? `${item.browser ?? ''} · ${item.os ?? ''}`.replace(/^ · | · $/, '') : '\u2014'}
                         </td>
                       </tr>
                     ))}
@@ -711,6 +828,203 @@ export default function AdminDashboard() {
                     })}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </div>
+        )}
+        {/* Predictions tab */}
+        {activeTab === 'predictions' && (
+          <div className="bg-[#1e293b] border border-[#334155] rounded-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-[#334155]">
+              <div>
+                <h2 className="text-base font-semibold text-white">All Predictions</h2>
+                <p className="text-xs text-[#475569] mt-0.5">{predictionsTotal} total predictions across all users</p>
+              </div>
+              <button onClick={loadPredictions} disabled={loadingPredictions}
+                className="px-3 py-1.5 bg-[#0f172a] border border-[#334155] hover:border-blue-500 text-[#94a3b8] hover:text-blue-400 text-xs rounded-lg disabled:opacity-50">
+                &#8635; Refresh
+              </button>
+            </div>
+            {loadingPredictions ? (
+              <div className="px-6 py-8 text-center text-[#475569] text-sm">Loading predictions\u2026</div>
+            ) : predictions.length === 0 ? (
+              <div className="px-6 py-12 text-center text-[#475569] text-sm">No predictions yet.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[#334155]">
+                      {['Time', 'User', 'Symbol', 'Timeframe', 'Direction', 'Confidence', 'Entry', 'SL', 'TP', 'AI'].map((h) => (
+                        <th key={h} className="text-left px-4 py-3 text-[#475569] text-xs font-semibold uppercase tracking-wider">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#0f172a]">
+                    {predictions.map((p) => (
+                      <tr key={p.id} className="hover:bg-[#0f172a]/40 transition-colors">
+                        <td className="px-4 py-3 text-[#475569] text-xs whitespace-nowrap">{new Date(p.created_at).toLocaleString()}</td>
+                        <td className="px-4 py-3">
+                          <p className="text-white text-xs">{p.name || '\u2014'}</p>
+                          <p className="text-[#475569] text-xs">{p.email}</p>
+                        </td>
+                        <td className="px-4 py-3 text-white font-mono text-xs font-bold">{p.symbol}</td>
+                        <td className="px-4 py-3 text-[#94a3b8] text-xs">{p.timeframe}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${
+                            p.direction === 'BUY' ? 'bg-green-900/40 text-green-400'
+                            : p.direction === 'SELL' ? 'bg-red-900/40 text-red-400'
+                            : 'bg-yellow-900/40 text-yellow-400'
+                          }`}>{p.direction}</span>
+                        </td>
+                        <td className="px-4 py-3 text-[#94a3b8] text-xs">{p.confidence != null ? `${p.confidence}%` : '\u2014'}</td>
+                        <td className="px-4 py-3 text-[#94a3b8] text-xs font-mono">{p.entry_price != null ? p.entry_price.toFixed(5) : '\u2014'}</td>
+                        <td className="px-4 py-3 text-red-400 text-xs font-mono">{p.stop_loss != null ? p.stop_loss.toFixed(5) : '\u2014'}</td>
+                        <td className="px-4 py-3 text-green-400 text-xs font-mono">{p.take_profit != null ? p.take_profit.toFixed(5) : '\u2014'}</td>
+                        <td className="px-4 py-3 text-[#475569] text-xs capitalize">{p.ai_provider}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Security tab */}
+        {activeTab === 'security' && (
+          <div className="space-y-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-semibold text-white">Security Overview</h2>
+              <button onClick={loadSecurity} disabled={loadingSecurity}
+                className="px-3 py-1.5 bg-[#1e293b] border border-[#334155] hover:border-blue-500 text-[#94a3b8] hover:text-blue-400 text-xs rounded-lg disabled:opacity-50">
+                &#8635; Refresh
+              </button>
+            </div>
+            {loadingSecurity ? (
+              <div className="text-center text-[#475569] text-sm py-12">Loading security data\u2026</div>
+            ) : !securityData ? (
+              <div className="text-center text-[#475569] text-sm py-12">No data available.</div>
+            ) : (
+              <div className="space-y-5">
+                {/* Top IPs */}
+                <div className="bg-[#1e293b] border border-[#334155] rounded-2xl overflow-hidden">
+                  <div className="px-6 py-4 border-b border-[#334155]">
+                    <h3 className="text-sm font-semibold text-white">Most Active IP Addresses</h3>
+                    <p className="text-xs text-[#475569] mt-0.5">Top IPs by total request volume</p>
+                  </div>
+                  {securityData.topIPs.length === 0 ? (
+                    <div className="px-6 py-8 text-center text-[#475569] text-sm">No data yet.</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-[#334155]">
+                            {['IP Address', 'Total Requests', 'Unique Users', 'Last Seen'].map((h) => (
+                              <th key={h} className="text-left px-4 py-3 text-[#475569] text-xs font-semibold uppercase">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#0f172a]">
+                          {securityData.topIPs.map((ip, i) => (
+                            <tr key={i} className="hover:bg-[#0f172a]/40">
+                              <td className="px-4 py-3 text-white font-mono text-xs">{ip.ip_address}</td>
+                              <td className="px-4 py-3 text-blue-400 font-bold text-xs">{ip.requests}</td>
+                              <td className="px-4 py-3 text-[#94a3b8] text-xs">{ip.unique_users}</td>
+                              <td className="px-4 py-3 text-[#475569] text-xs">{new Date(ip.last_seen).toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                {/* Blocked Users */}
+                {securityData.blockedUsers.length > 0 && (
+                  <div className="bg-[#1e293b] border border-[#334155] rounded-2xl overflow-hidden">
+                    <div className="px-6 py-4 border-b border-[#334155]">
+                      <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+                        Blocked Users
+                        <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-900/40 text-red-400">{securityData.blockedUsers.length}</span>
+                      </h3>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-[#334155]">
+                            {['User', 'Registered', 'Last Active'].map((h) => (
+                              <th key={h} className="text-left px-4 py-3 text-[#475569] text-xs font-semibold uppercase">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#0f172a]">
+                          {securityData.blockedUsers.map((u) => (
+                            <tr key={u.id} className="hover:bg-[#0f172a]/40">
+                              <td className="px-4 py-3">
+                                <p className="text-white text-xs">{u.name || '\u2014'}</p>
+                                <p className="text-[#475569] text-xs">{u.email}</p>
+                              </td>
+                              <td className="px-4 py-3 text-[#475569] text-xs">{new Date(u.created_at).toLocaleDateString()}</td>
+                              <td className="px-4 py-3 text-[#475569] text-xs">{u.last_active ? new Date(u.last_active).toLocaleString() : '\u2014'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* Recent Logins */}
+                <div className="bg-[#1e293b] border border-[#334155] rounded-2xl overflow-hidden">
+                  <div className="px-6 py-4 border-b border-[#334155]">
+                    <h3 className="text-sm font-semibold text-white">Recent Logins</h3>
+                    <p className="text-xs text-[#475569] mt-0.5">Last {securityData.recentLogins.length} login events with location data</p>
+                  </div>
+                  {securityData.recentLogins.length === 0 ? (
+                    <div className="px-6 py-8 text-center text-[#475569] text-sm">No logins recorded yet.</div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-[#334155]">
+                            {['Time', 'User', 'IP / Location', 'Device', 'Status'].map((h) => (
+                              <th key={h} className="text-left px-4 py-3 text-[#475569] text-xs font-semibold uppercase">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#0f172a]">
+                          {securityData.recentLogins.map((login) => (
+                            <tr key={login.id} className="hover:bg-[#0f172a]/40">
+                              <td className="px-4 py-3 text-[#475569] text-xs whitespace-nowrap">{new Date(login.created_at).toLocaleString()}</td>
+                              <td className="px-4 py-3">
+                                <p className="text-white text-xs">{login.name || '\u2014'}</p>
+                                <p className="text-[#475569] text-xs">{login.email}</p>
+                              </td>
+                              <td className="px-4 py-3 text-xs">
+                                {login.country ? (
+                                  <>
+                                    <p className="text-white">{login.city ? `${login.city}, ` : ''}{login.country}</p>
+                                    <p className="text-[#475569] font-mono">{login.ip_address || '\u2014'}</p>
+                                  </>
+                                ) : (
+                                  <span className="text-[#475569] font-mono">{login.ip_address || '\u2014'}</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-[#475569] text-xs">
+                                {login.browser || login.os ? `${login.browser ?? ''} / ${login.os ?? ''}`.replace(/^\/ | \/\s*$/, '') : '\u2014'}
+                              </td>
+                              <td className="px-4 py-3">
+                                {login.is_blocked
+                                  ? <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-900/40 text-red-400">Blocked</span>
+                                  : <span className="px-2 py-0.5 rounded text-xs font-bold bg-green-900/40 text-green-400">Active</span>}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>

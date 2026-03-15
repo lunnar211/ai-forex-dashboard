@@ -7,6 +7,7 @@ const openaiService = require('../services/openaiService');
 const geminiService = require('../services/geminiService');
 const openrouterService = require('../services/openrouterService');
 const { pool } = require('../config/database');
+const { extractIP, parseUserAgent, geoLookup } = require('../services/geoService');
 
 const WATCHED_PAIRS = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'XAU/USD'];
 const RATE_LIMIT_WINDOW = 3600; // 1 hour in seconds
@@ -195,12 +196,29 @@ async function predict(req, res) {
     // 5. Persist
     const saved = await savePrediction(userId, symbol, timeframe, prediction);
 
-    // Log tool_use activity and update last_active (non-blocking)
-    pool.query(
-      'INSERT INTO user_activity (user_id, action, ip_address, metadata) VALUES ($1, $2, $3, $4)',
-      [userId, 'tool_use', req.ip || null,
-        JSON.stringify({ tool: 'ai_predict', symbol, timeframe })]
-    ).catch((err) => console.error('[AI] Failed to log tool_use:', err.message));
+    // Log tool_use activity with geo data and update last_active (non-blocking)
+    const actIP = extractIP(req);
+    const actUA = req.headers['user-agent'] || null;
+    const { device_type, browser, os } = parseUserAgent(actUA);
+    const redis = req.app.locals.redis;
+    geoLookup(actIP, redis).then((geo) => {
+      pool.query(
+        `INSERT INTO user_activity
+           (user_id, action, symbol, timeframe,
+            prediction_direction, prediction_confidence,
+            ip_address, country, country_code, city, region, isp,
+            latitude, longitude, user_agent, device_type, browser, os, metadata)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)`,
+        [
+          userId, 'tool_use', symbol, timeframe,
+          prediction.direction,
+          prediction.confidence,
+          actIP, geo.country, geo.country_code, geo.city, geo.region, geo.isp,
+          geo.latitude, geo.longitude, actUA, device_type, browser, os,
+          JSON.stringify({ tool: 'ai_predict', symbol, timeframe }),
+        ]
+      ).catch((err) => console.error('[AI] Failed to log tool_use:', err.message));
+    }).catch(() => {});
 
     pool.query(
       'UPDATE users SET last_active = NOW() WHERE id = $1',
@@ -424,12 +442,22 @@ Respond ONLY with valid JSON. No markdown, no extra text.`;
       console.error('[AIController] analyzeImage save error:', dbErr.message);
     }
 
-    // Log tool_use activity and update last_active (non-blocking)
-    pool.query(
-      'INSERT INTO user_activity (user_id, action, ip_address, metadata) VALUES ($1, $2, $3, $4)',
-      [userId, 'tool_use', req.ip || null,
-        JSON.stringify({ tool: 'image_analysis' })]
-    ).catch((err) => console.error('[AI] Failed to log tool_use:', err.message));
+    // Log tool_use activity with geo data and update last_active (non-blocking)
+    const imgIP = extractIP(req);
+    const imgUA = req.headers['user-agent'] || null;
+    const { device_type: imgDT, browser: imgBR, os: imgOS } = parseUserAgent(imgUA);
+    const imgRedis = req.app.locals.redis;
+    geoLookup(imgIP, imgRedis).then((geo) => {
+      pool.query(
+        `INSERT INTO user_activity
+           (user_id, action, ip_address, country, country_code, city, region, isp,
+            latitude, longitude, user_agent, device_type, browser, os, metadata)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+        [userId, 'tool_use', imgIP, geo.country, geo.country_code, geo.city,
+         geo.region, geo.isp, geo.latitude, geo.longitude, imgUA, imgDT, imgBR, imgOS,
+         JSON.stringify({ tool: 'image_analysis' })]
+      ).catch((err) => console.error('[AI] Failed to log tool_use:', err.message));
+    }).catch(() => {});
 
     pool.query(
       'UPDATE users SET last_active = NOW() WHERE id = $1',

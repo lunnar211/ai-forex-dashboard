@@ -17,6 +17,8 @@ const {
   getUserDetails,
   restrictUser,
   unrestrictUser,
+  getPredictions,
+  getSecurityEvents,
 } = require('../controllers/adminController');
 const adminAuthMiddleware = require('../middleware/adminAuth');
 
@@ -49,5 +51,7 @@ router.get('/stats', adminRateLimiter, adminAuthMiddleware, getStats);
 router.get('/activity', adminRateLimiter, adminAuthMiddleware, getActivity);
 router.get('/analytics', adminRateLimiter, adminAuthMiddleware, getAnalytics);
 router.get('/online-users', adminRateLimiter, adminAuthMiddleware, getOnlineUsers);
+router.get('/predictions', adminRateLimiter, adminAuthMiddleware, getPredictions);
+router.get('/security', adminRateLimiter, adminAuthMiddleware, getSecurityEvents);
 
 module.exports = router;

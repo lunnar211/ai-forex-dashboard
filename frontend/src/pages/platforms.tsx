@@ -4,7 +4,7 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import clsx from 'clsx';
 import { useAuthStore } from '../store/authStore';
-import { forex, ai } from '../services/api';
+import { forex, ai, activity } from '../services/api';
 import Sidebar from '../components/Sidebar';
 import TopNav from '../components/TopNav';
 import PredictionCard from '../components/PredictionCard';
@@ -49,6 +49,7 @@ const PLATFORM_CATEGORIES: PlatformCategoryDef[] = [
     instruments: [
       { symbol: 'XAU/USD', name: 'Gold / US Dollar' },
       { symbol: 'XAG/USD', name: 'Silver / US Dollar' },
+      { symbol: 'XPT/USD', name: 'Platinum / US Dollar' },
     ],
   },
   {
@@ -63,6 +64,8 @@ const PLATFORM_CATEGORIES: PlatformCategoryDef[] = [
       { symbol: 'BNB/USD', name: 'BNB / US Dollar' },
       { symbol: 'SOL/USD', name: 'Solana / US Dollar' },
       { symbol: 'ADA/USD', name: 'Cardano / US Dollar' },
+      { symbol: 'XRP/USD', name: 'XRP / US Dollar' },
+      { symbol: 'DOGE/USD', name: 'Dogecoin / US Dollar' },
     ],
   },
   {
@@ -78,6 +81,7 @@ const PLATFORM_CATEGORIES: PlatformCategoryDef[] = [
       { symbol: 'TSLA', name: 'Tesla Inc.' },
       { symbol: 'AMZN', name: 'Amazon.com Inc.' },
       { symbol: 'NVDA', name: 'NVIDIA Corp.' },
+      { symbol: 'META', name: 'Meta Platforms Inc.' },
     ],
   },
   {
@@ -92,6 +96,7 @@ const PLATFORM_CATEGORIES: PlatformCategoryDef[] = [
       { symbol: 'NDX', name: 'NASDAQ 100' },
       { symbol: 'FTSE', name: 'FTSE 100' },
       { symbol: 'DAX', name: 'DAX 40' },
+      { symbol: 'NIKKEI', name: 'Nikkei 225' },
     ],
   },
   {
@@ -224,11 +229,22 @@ export default function Platforms() {
     if (!selectedSymbol) return;
     setError('');
     setLoadingPredict(true);
+    // Track prediction request
+    activity.track({ action: 'prediction_request', page: 'platforms', symbol: selectedSymbol, timeframe });
     try {
       const data: PredictResponse = await ai.predict(selectedSymbol, timeframe);
       setPrediction(data.prediction);
       setIndicators(data.indicators);
       setIsMockData(data.isMockData);
+      // Track prediction result
+      activity.track({
+        action: 'prediction_result',
+        page: 'platforms',
+        symbol: selectedSymbol,
+        timeframe,
+        prediction_direction: data.prediction.direction,
+        prediction_confidence: data.prediction.confidence,
+      });
       setTimeout(() => {
         predictionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 100);
@@ -247,6 +263,8 @@ export default function Platforms() {
     setLivePrice(null);
     setError('');
     setChartError('');
+    // Track symbol selection
+    activity.track({ action: 'symbol_view', page: 'platforms', symbol });
   }
 
   function handleSelectCategory(cat: PlatformCategoryDef) {
@@ -362,7 +380,10 @@ export default function Platforms() {
                   {TIMEFRAMES.map((tf) => (
                     <button
                       key={tf.value}
-                      onClick={() => setTimeframe(tf.value)}
+                      onClick={() => {
+                        setTimeframe(tf.value);
+                        if (selectedSymbol) activity.track({ action: 'timeframe_change', page: 'platforms', symbol: selectedSymbol, timeframe: tf.value });
+                      }}
                       className={clsx(
                         'px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150',
                         timeframe === tf.value

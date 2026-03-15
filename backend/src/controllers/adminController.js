@@ -470,6 +470,103 @@ async function unrestrictUser(req, res) {
   }
 }
 
+// GET /admin/predictions
+async function getPredictions(req, res) {
+  const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+  const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+  const symbol = req.query.symbol || null;
+
+  try {
+    const params = [];
+    let where = '';
+    if (symbol) {
+      params.push(symbol.toUpperCase());
+      where = 'WHERE p.symbol = $1';
+    }
+
+    const countResult = await pool.query(
+      `SELECT COUNT(*) AS total FROM predictions p ${where}`,
+      params
+    );
+    const total = parseInt(countResult.rows[0].total, 10);
+
+    const dataParams = [...params, limit, offset];
+    const result = await pool.query(
+      `SELECT p.id, p.symbol, p.timeframe, p.direction, p.confidence,
+              p.entry_price, p.stop_loss, p.take_profit, p.ai_provider,
+              p.created_at,
+              u.id AS user_id, u.email, u.name
+       FROM predictions p
+       JOIN users u ON u.id = p.user_id
+       ${where}
+       ORDER BY p.created_at DESC
+       LIMIT $${dataParams.length - 1} OFFSET $${dataParams.length}`,
+      dataParams
+    );
+
+    const predictions = result.rows.map((row) => ({
+      ...row,
+      confidence: row.confidence != null ? parseFloat(row.confidence) : null,
+      entry_price: row.entry_price != null ? parseFloat(row.entry_price) : null,
+      stop_loss: row.stop_loss != null ? parseFloat(row.stop_loss) : null,
+      take_profit: row.take_profit != null ? parseFloat(row.take_profit) : null,
+    }));
+
+    return res.json({ predictions, total, limit, offset });
+  } catch (err) {
+    console.error('[AdminController] getPredictions error:', err.message);
+    return res.status(500).json({ error: 'Failed to retrieve predictions.' });
+  }
+}
+
+// GET /admin/security
+async function getSecurityEvents(req, res) {
+  const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
+
+  try {
+    // Recent login attempts
+    const loginResult = await pool.query(
+      `SELECT ua.id, ua.action, ua.ip_address, ua.country, ua.country_code,
+              ua.city, ua.browser, ua.os, ua.device_type, ua.created_at,
+              u.id AS user_id, u.email, u.name, u.is_blocked
+       FROM user_activity ua
+       JOIN users u ON u.id = ua.user_id
+       WHERE ua.action = 'login'
+       ORDER BY ua.created_at DESC
+       LIMIT $1`,
+      [limit]
+    );
+
+    // Blocked users
+    const blockedResult = await pool.query(
+      `SELECT id, email, name, created_at, last_active
+       FROM users
+       WHERE is_blocked = TRUE AND is_admin = FALSE
+       ORDER BY created_at DESC`
+    );
+
+    // Most active IPs
+    const ipResult = await pool.query(
+      `SELECT ip_address, COUNT(*) AS requests, COUNT(DISTINCT user_id) AS unique_users,
+              MAX(created_at) AS last_seen
+       FROM user_activity
+       WHERE ip_address IS NOT NULL
+       GROUP BY ip_address
+       ORDER BY requests DESC
+       LIMIT 20`
+    );
+
+    return res.json({
+      recentLogins: loginResult.rows,
+      blockedUsers: blockedResult.rows,
+      topIPs: ipResult.rows,
+    });
+  } catch (err) {
+    console.error('[AdminController] getSecurityEvents error:', err.message);
+    return res.status(500).json({ error: 'Failed to retrieve security events.' });
+  }
+}
+
 module.exports = {
   adminLogin,
   listUsers,
@@ -484,4 +581,6 @@ module.exports = {
   getUserDetails,
   restrictUser,
   unrestrictUser,
+  getPredictions,
+  getSecurityEvents,
 };
