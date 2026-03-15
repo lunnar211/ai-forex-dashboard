@@ -5,15 +5,15 @@
 #   1. Fork / push this repo to GitHub.
 #   2. Go to https://dashboard.render.com/blueprints and click "New Blueprint".
 #   3. Connect your GitHub repo – Render will detect this file automatically.
-#   4. Fill in the required environment variables (GROQ_API_KEY etc.) when prompted.
-#   5. Click "Apply" – Render creates the database, Redis, backend, and frontend.
+#   4. Set up external services first (PostgreSQL, Redis) and note their connection URLs.
+#   5. Fill in all required environment variables (DATABASE_URL, REDIS_URL, JWT_SECRET,
+#      GROQ_API_KEY, etc.) when prompted in the Render dashboard.
+#   6. Click "Apply" – Render creates the backend and frontend services.
 
 services:
-  # ── Backend API ──────────────────────────────────────────────────────────────
   - type: web
     name: ai-forex-backend
     runtime: node
-    plan: free
     rootDir: backend
     buildCommand: npm install
     startCommand: node src/index.js
@@ -23,22 +23,11 @@ services:
       - key: PORT
         value: 5000
       - key: DATABASE_URL
-        fromDatabase:
-          name: forex-db
-          property: connectionString
+        sync: false           # Required: PostgreSQL connection string (external service)
       - key: REDIS_URL
-        fromService:
-          name: forex-redis
-          type: redis
-          property: connectionString
+        sync: false           # Required: Redis connection string (external service)
       - key: JWT_SECRET
         sync: false
-      # Admin credentials – set these in the Render dashboard after deploy
-      - key: ADMIN_EMAIL
-        sync: false
-      - key: ADMIN_PASSWORD
-        sync: false
-      # Set your AI provider key(s) in the Render dashboard after deploy
       - key: OPENAI_API_KEY
         sync: false
       - key: GROQ_API_KEY
@@ -51,34 +40,17 @@ services:
         sync: false
       - key: CORS_ORIGIN
         sync: false
+      - key: AI_ENGINE_URL
+        sync: false
 
-  # ── Frontend ─────────────────────────────────────────────────────────────────
   - type: web
     name: ai-forex-frontend
     runtime: node
-    plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
-      - key: NEXT_PUBLIC_API_URL
-        fromService:
-          name: ai-forex-backend
-          type: web
-          property: host
-          scheme: https
       - key: NODE_ENV
         value: production
-
-  # ── Redis ─────────────────────────────────────────────────────────────────────
-  - type: redis
-    name: forex-redis
-    plan: free
-    ipAllowList: []
-
-# ── PostgreSQL ──────────────────────────────────────────────────────────────────
-databases:
-  - name: forex-db
-    plan: free
-    databaseName: forex_db
-    user: forex_user
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
