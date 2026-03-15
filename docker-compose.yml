@@ -41,6 +41,10 @@ services:
       DATABASE_URL: postgresql://forex_user:forex_pass@db:5432/forex_db
       REDIS_URL: redis://redis:6379
       JWT_SECRET: ${JWT_SECRET}
+      # Admin credentials — set these in your .env file or shell environment.
+      # On first startup the backend will seed the admin user automatically.
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}

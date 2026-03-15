@@ -27,6 +27,16 @@ function validateEnv() {
     }
   }
 
+  // Admin credentials — strongly recommended; without them the admin panel
+  // cannot be used.  Set ADMIN_EMAIL and ADMIN_PASSWORD as environment
+  // variables so the backend can seed the admin account on startup.
+  if (!process.env.ADMIN_EMAIL || !process.env.ADMIN_PASSWORD) {
+    warnings.push(
+      'ADMIN_EMAIL or ADMIN_PASSWORD not set — admin panel login will not work. ' +
+      'Set these environment variables and restart the server to create the admin account.'
+    );
+  }
+
   // Strongly recommended but app can still serve mock data without it
   if (!process.env.TWELVE_DATA_API_KEY) {
     warnings.push(
