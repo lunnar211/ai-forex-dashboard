@@ -1,6 +1,7 @@
 'use strict';
 
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
 
@@ -15,6 +16,18 @@ function signAdminToken(user) {
   );
 }
 
+/**
+ * Constant-time string comparison to defend against timing attacks.
+ * Returns false for mismatched lengths without leaking length information.
+ */
+function safeEqual(a, b) {
+  try {
+    return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  } catch {
+    return false;
+  }
+}
+
 // POST /admin/login
 async function adminLogin(req, res) {
   const { email, password } = req.body;
@@ -23,19 +36,61 @@ async function adminLogin(req, res) {
     return res.status(400).json({ error: 'Email and password are required.' });
   }
 
+  const envEmail = process.env.ADMIN_EMAIL || '';
+  const envPassword = process.env.ADMIN_PASSWORD || '';
+  const envCredentialsMatch =
+    envEmail &&
+    envPassword &&
+    safeEqual(email.toLowerCase(), envEmail.toLowerCase()) &&
+    safeEqual(password, envPassword);
+
   try {
     const result = await pool.query(
       'SELECT id, email, password, name, is_admin FROM users WHERE email = $1',
       [email.toLowerCase()]
     );
 
+    // If user does not exist yet, attempt env-var bootstrap before giving up.
     if (result.rows.length === 0) {
+      if (envCredentialsMatch) {
+        // Seed the admin user now and log them in.
+        const hashed = await bcrypt.hash(password, SALT_ROUNDS);
+        const inserted = await pool.query(
+          'INSERT INTO users (email, password, name, is_admin) VALUES ($1, $2, $3, TRUE) RETURNING id, email, name',
+          [email.toLowerCase(), hashed, 'Admin']
+        );
+        const newUser = inserted.rows[0];
+        const token = signAdminToken(newUser);
+        return res.json({
+          message: 'Admin login successful.',
+          token,
+          user: { id: newUser.id, email: newUser.email, name: newUser.name, isAdmin: true },
+        });
+      }
+
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
     const user = result.rows[0];
 
     if (!user.is_admin) {
+      // The user exists but was never promoted to admin (e.g. registered before
+      // ADMIN_EMAIL/ADMIN_PASSWORD env vars were set).  If the submitted
+      // credentials match the env-var admin, promote them now and log them in.
+      if (envCredentialsMatch) {
+        const hashed = await bcrypt.hash(password, SALT_ROUNDS);
+        await pool.query(
+          'UPDATE users SET is_admin = TRUE, password = $2 WHERE email = $1',
+          [email.toLowerCase(), hashed]
+        );
+        const token = signAdminToken(user);
+        return res.json({
+          message: 'Admin login successful.',
+          token,
+          user: { id: user.id, email: user.email, name: user.name, isAdmin: true },
+        });
+      }
+
       return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
     }
 
