@@ -2,6 +2,7 @@
 
 const OpenAI = require('openai');
 const { buildTradingPrompt } = require('./groqService');
+const { MASTER_SYSTEM_PROMPT } = require('./masterPrompt');
 
 // OpenRouter is OpenAI-API-compatible; we point the client at the OpenRouter
 // base URL and supply the OPENROUTER_API_KEY as the bearer token.
@@ -72,8 +73,7 @@ async function getAIPrediction(symbol, timeframe, indicators, priceData) {
     messages: [
       {
         role: 'system',
-        content:
-          'You are a professional forex trading analyst. Always respond with valid JSON only. No markdown, no extra text.',
+        content: MASTER_SYSTEM_PROMPT,
       },
       { role: 'user', content: prompt },
     ],

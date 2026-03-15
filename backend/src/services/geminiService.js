@@ -2,6 +2,7 @@
 
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const { buildTradingPrompt } = require('./groqService');
+const { MASTER_SYSTEM_PROMPT } = require('./masterPrompt');
 
 let geminiClient = null;
 
@@ -65,10 +66,7 @@ async function getAIPrediction(symbol, timeframe, indicators, priceData) {
     },
   });
 
-  const systemInstruction =
-    'You are a professional forex trading analyst. Always respond with valid JSON only. No markdown, no extra text outside the JSON object.';
-
-  const result = await model.generateContent(`${systemInstruction}\n\n${prompt}`);
+  const result = await model.generateContent(`${MASTER_SYSTEM_PROMPT}\n\n${prompt}`);
   const content = result.response.text();
   return parseAIResponse(content, indicators);
 }
