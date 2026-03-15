@@ -3,12 +3,31 @@
 const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 
+// Enable SSL for any non-localhost database (Supabase, Render, etc.) regardless
+// of NODE_ENV, allowing local development environments to connect to remote databases.
+function _isLocalConnection(connectionString) {
+  if (!connectionString) return true;
+  try {
+    const { hostname } = new URL(connectionString);
+    const h = hostname.toLowerCase();
+    return (
+      h === 'localhost' ||
+      h === '127.0.0.1' ||
+      h === '::1' ||
+      h === 'host.docker.internal'
+    );
+  } catch {
+    // Malformed URL – default to enabling SSL for safety
+    return false;
+  }
+}
+const _sslConfig = _isLocalConnection(process.env.DATABASE_URL)
+  ? false
+  : { rejectUnauthorized: false };
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl:
-    process.env.NODE_ENV === 'production'
-      ? { rejectUnauthorized: false }
-      : false,
+  ssl: _sslConfig,
   max: 20,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
