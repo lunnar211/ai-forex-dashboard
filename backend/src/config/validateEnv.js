@@ -13,7 +13,7 @@ function validateEnv() {
   }
 
   // At least one AI provider key must be present
-  const aiKeys = ['GROQ_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY'];
+  const aiKeys = ['GROQ_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'OPENROUTER_API_KEY'];
   const hasAiKey = aiKeys.some((k) => process.env[k]);
   if (!hasAiKey) {
     errors.push(

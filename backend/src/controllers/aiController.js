@@ -5,6 +5,7 @@ const { calculateAll } = require('../services/indicatorService');
 const groqService = require('../services/groqService');
 const openaiService = require('../services/openaiService');
 const geminiService = require('../services/geminiService');
+const openrouterService = require('../services/openrouterService');
 const { pool } = require('../config/database');
 
 const WATCHED_PAIRS = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'XAU/USD'];
@@ -168,6 +169,7 @@ async function predict(req, res) {
       ['groq', groqService],
       ['openai', openaiService],
       ['gemini', geminiService],
+      ['openrouter', openrouterService],
     ]) {
       try {
         prediction = await service.getAIPrediction(symbol, timeframe, indicators, candles);

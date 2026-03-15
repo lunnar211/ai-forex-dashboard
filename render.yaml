@@ -45,16 +45,20 @@ services:
           name: forex-redis
           property: connectionString
       - key: JWT_SECRET
-        generateValue: true
+        sync: false
       - key: ADMIN_EMAIL
-        sync: false           # Required: your admin login email
+        sync: false           # Required: admin panel login email
       - key: ADMIN_PASSWORD
-        sync: false           # Required: your admin password (min 8 chars)
+        sync: false           # Required: admin panel login password
+      - key: OPENAI_API_KEY
+        sync: false
       - key: GROQ_API_KEY
         sync: false           # At least one AI key is required
       - key: OPENAI_API_KEY
         sync: false
       - key: GEMINI_API_KEY
+        sync: false
+      - key: OPENROUTER_API_KEY
         sync: false
       - key: TWELVE_DATA_API_KEY
         sync: false           # Optional: real forex data; uses mock data if not set
