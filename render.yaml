@@ -2,55 +2,82 @@
 # Docs: https://render.com/docs/blueprint-spec
 #
 # Usage:
-#   1. Fork / push this repo to GitHub.
-#   2. Go to https://dashboard.render.com/blueprints and click "New Blueprint".
+#   1. Fork / push this repo to your GitHub account.
+#   2. Go to https://dashboard.render.com/blueprints and click "New Blueprint Instance".
 #   3. Connect your GitHub repo – Render will detect this file automatically.
-#   4. Set up external services first (PostgreSQL, Redis) and note their connection URLs.
-#   5. Fill in all required environment variables (DATABASE_URL, REDIS_URL, JWT_SECRET,
-#      GROQ_API_KEY, etc.) when prompted in the Render dashboard.
-#   6. Click "Apply" – Render creates the backend and frontend services.
+#   4. Fill in the required environment variables when prompted (JWT_SECRET, ADMIN_EMAIL,
+#      ADMIN_PASSWORD, and at least one AI key: GROQ_API_KEY / OPENAI_API_KEY / GEMINI_API_KEY).
+#   5. Click "Apply" – Render automatically creates the database, Redis, backend, and frontend.
+#
+# All infrastructure (PostgreSQL, Redis) is provisioned and linked automatically.
+# No need to create external services or set DATABASE_URL / REDIS_URL manually.
+
+databases:
+  - name: forex-db
+    plan: free
+    databaseName: forex_db
+    user: forex_user
 
 services:
+  - type: redis
+    name: forex-redis
+    plan: free
+    ipAllowList: []           # empty list = no public access; backend reaches Redis via Render's private network
+
   - type: web
     name: ai-forex-backend
-    runtime: node
-    rootDir: backend
-    buildCommand: npm install
-    startCommand: node src/index.js
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
         value: 5000
       - key: DATABASE_URL
-        sync: false           # Required: PostgreSQL connection string (external service)
+        fromDatabase:
+          name: forex-db
+          property: connectionString
       - key: REDIS_URL
-        sync: false           # Required: Redis connection string (external service)
+        fromService:
+          type: redis
+          name: forex-redis
+          property: connectionString
       - key: JWT_SECRET
-        sync: false
-      - key: OPENAI_API_KEY
-        sync: false
+        generateValue: true
+      - key: ADMIN_EMAIL
+        sync: false           # Required: your admin login email
+      - key: ADMIN_PASSWORD
+        sync: false           # Required: your admin password (min 8 chars)
       - key: GROQ_API_KEY
+        sync: false           # At least one AI key is required
+      - key: OPENAI_API_KEY
         sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: TWELVE_DATA_API_KEY
-        sync: false
+        sync: false           # Optional: real forex data; uses mock data if not set
       - key: ALPHA_VANTAGE_API_KEY
         sync: false
       - key: CORS_ORIGIN
-        sync: false
+        fromService:
+          type: web
+          name: ai-forex-frontend
+          property: url
       - key: AI_ENGINE_URL
         sync: false
 
   - type: web
     name: ai-forex-frontend
-    runtime: node
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    startCommand: npm start
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
     envVars:
       - key: NODE_ENV
         value: production
       - key: NEXT_PUBLIC_API_URL
-        sync: false
+        fromService:
+          type: web
+          name: ai-forex-backend
+          property: url

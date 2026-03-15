@@ -24,15 +24,18 @@ A full-stack AI-powered forex trading dashboard with real-time price charts, tec
 ### Option A – One-click on Render.com (recommended for free hosting)
 
 Render gives you a free PostgreSQL database, free Redis instance, and two free web services.
+The Blueprint (`render.yaml`) uses Docker and auto-provisions everything.
 
 1. Fork this repository to your own GitHub account.
 2. Go to <https://dashboard.render.com/blueprints> and click **New Blueprint Instance**.
 3. Connect your GitHub repo – Render detects `render.yaml` automatically.
-4. Fill in the required environment variables when prompted (see table below).
-5. Click **Apply** – Render will create the database, Redis, backend, and frontend in one go.
+4. Fill in the required environment variables when prompted:
+   - `ADMIN_EMAIL` and `ADMIN_PASSWORD` (for the admin panel)
+   - At least one AI key: `GROQ_API_KEY`, `OPENAI_API_KEY`, or `GEMINI_API_KEY`
+5. Click **Apply** – Render creates the database, Redis, backend, and frontend in one go.
 
-> After the first deploy, open the backend service in the Render dashboard and add your API keys
-> under **Environment → Add Environment Variable**.
+> `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `CORS_ORIGIN`, and `NEXT_PUBLIC_API_URL`
+> are all **auto-linked** between services – no manual wiring required.
 
 ---
 
