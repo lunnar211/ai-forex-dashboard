@@ -57,6 +57,10 @@ export default function PredictionCard({ prediction, indicators, loading, symbol
   const fmt = (n: number, decimals = 5) =>
     typeof n === 'number' ? n.toFixed(decimals) : '—';
 
+  // Show the three most significant levels from the array (backend returns up to 5)
+  const fmtLevels = (levels: number[] | undefined) =>
+    levels?.length ? levels.slice(-3).join(' | ') : '—';
+
   return (
     <div className="bg-[#1e293b] rounded-xl border border-[#334155] overflow-hidden">
       {/* Header */}
@@ -132,13 +136,13 @@ export default function PredictionCard({ prediction, indicators, loading, symbol
                 <div className="flex justify-between text-sm">
                   <span className="text-[#94a3b8]">Resistance</span>
                   <span className="font-mono text-[#ef4444]">
-                    {fmt(indicators.supportResistance?.resistance)}
+                    {fmtLevels(indicators.supportResistance?.resistance)}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-[#94a3b8]">Support</span>
                   <span className="font-mono text-[#22c55e]">
-                    {fmt(indicators.supportResistance?.support)}
+                    {fmtLevels(indicators.supportResistance?.support)}
                   </span>
                 </div>
               </div>
