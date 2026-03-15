@@ -116,7 +116,7 @@ async function adminLogin(req, res) {
 async function listUsers(req, res) {
   try {
     const result = await pool.query(
-      'SELECT id, email, name, is_admin, is_blocked, created_at FROM users ORDER BY created_at DESC'
+      'SELECT id, email, name, is_admin, is_blocked, is_restricted, last_active, created_at FROM users ORDER BY created_at DESC'
     );
     return res.json({ users: result.rows });
   } catch (err) {
@@ -234,7 +234,7 @@ async function getActivity(req, res) {
     if (action) params.push(action);
 
     const result = await pool.query(
-      `SELECT ua.id, ua.action, ua.ip_address, ua.user_agent, ua.created_at,
+      `SELECT ua.id, ua.action, ua.ip_address, ua.user_agent, ua.metadata, ua.created_at,
               u.id AS user_id, u.email, u.name
        FROM user_activity ua
        JOIN users u ON u.id = ua.user_id
@@ -311,4 +311,177 @@ async function unblockUser(req, res) {
   }
 }
 
-module.exports = { adminLogin, listUsers, createUser, deleteUser, getStats, getActivity, blockUser, unblockUser };
+// GET /admin/analytics
+async function getAnalytics(req, res) {
+  try {
+    const [marketResult, toolResult] = await Promise.all([
+      pool.query(`
+        SELECT
+          metadata->>'symbol' AS symbol,
+          metadata->>'category' AS category,
+          COUNT(*) AS views,
+          COUNT(DISTINCT user_id) AS unique_users
+        FROM user_activity
+        WHERE action = 'market_view' AND metadata IS NOT NULL
+        GROUP BY metadata->>'symbol', metadata->>'category'
+        ORDER BY views DESC
+        LIMIT 30
+      `),
+      pool.query(`
+        SELECT
+          metadata->>'tool' AS tool,
+          COUNT(*) AS uses,
+          COUNT(DISTINCT user_id) AS unique_users
+        FROM user_activity
+        WHERE action = 'tool_use' AND metadata IS NOT NULL
+        GROUP BY metadata->>'tool'
+        ORDER BY uses DESC
+      `),
+    ]);
+
+    return res.json({
+      marketInterest: marketResult.rows,
+      toolUsage: toolResult.rows,
+    });
+  } catch (err) {
+    console.error('[AdminController] getAnalytics error:', err.message);
+    return res.status(500).json({ error: 'Failed to retrieve analytics.' });
+  }
+}
+
+// GET /admin/online-users
+async function getOnlineUsers(req, res) {
+  try {
+    const result = await pool.query(
+      `SELECT id, email, name, last_active, is_blocked, is_restricted, created_at
+       FROM users
+       WHERE last_active >= NOW() - INTERVAL '5 minutes' AND is_admin = FALSE
+       ORDER BY last_active DESC`
+    );
+    return res.json({ onlineUsers: result.rows, count: result.rows.length });
+  } catch (err) {
+    console.error('[AdminController] getOnlineUsers error:', err.message);
+    return res.status(500).json({ error: 'Failed to retrieve online users.' });
+  }
+}
+
+// GET /admin/users/:id
+async function getUserDetails(req, res) {
+  const { id } = req.params;
+  const parsedId = parseInt(id, 10);
+
+  if (isNaN(parsedId)) {
+    return res.status(400).json({ error: 'Invalid user ID.' });
+  }
+
+  try {
+    const [userResult, activityResult, predictionResult] = await Promise.all([
+      pool.query(
+        `SELECT id, email, name, is_admin, is_blocked, is_restricted, created_at, last_active
+         FROM users WHERE id = $1`,
+        [parsedId]
+      ),
+      pool.query(
+        `SELECT action, ip_address, user_agent, metadata, created_at
+         FROM user_activity WHERE user_id = $1
+         ORDER BY created_at DESC LIMIT 20`,
+        [parsedId]
+      ),
+      pool.query(
+        `SELECT symbol, timeframe, direction, confidence, created_at
+         FROM predictions WHERE user_id = $1
+         ORDER BY created_at DESC LIMIT 10`,
+        [parsedId]
+      ),
+    ]);
+
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+
+    return res.json({
+      user: userResult.rows[0],
+      recentActivity: activityResult.rows,
+      recentPredictions: predictionResult.rows,
+    });
+  } catch (err) {
+    console.error('[AdminController] getUserDetails error:', err.message);
+    return res.status(500).json({ error: 'Failed to retrieve user details.' });
+  }
+}
+
+// PATCH /admin/users/:id/restrict
+async function restrictUser(req, res) {
+  const { id } = req.params;
+  const parsedId = parseInt(id, 10);
+
+  if (isNaN(parsedId)) {
+    return res.status(400).json({ error: 'Invalid user ID.' });
+  }
+
+  if (parsedId === req.user.id) {
+    return res.status(400).json({ error: 'Cannot restrict your own admin account.' });
+  }
+
+  try {
+    const result = await pool.query(
+      'UPDATE users SET is_restricted = TRUE WHERE id = $1 AND is_admin = FALSE RETURNING id, email',
+      [parsedId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found or cannot restrict admin accounts.' });
+    }
+
+    return res.json({ message: 'User restricted successfully.' });
+  } catch (err) {
+    console.error('[AdminController] restrictUser error:', err.message);
+    return res.status(500).json({ error: 'Failed to restrict user.' });
+  }
+}
+
+// PATCH /admin/users/:id/unrestrict
+async function unrestrictUser(req, res) {
+  const { id } = req.params;
+  const parsedId = parseInt(id, 10);
+
+  if (isNaN(parsedId)) {
+    return res.status(400).json({ error: 'Invalid user ID.' });
+  }
+
+  if (parsedId === req.user.id) {
+    return res.status(400).json({ error: 'Cannot unrestrict your own admin account.' });
+  }
+
+  try {
+    const result = await pool.query(
+      'UPDATE users SET is_restricted = FALSE WHERE id = $1 AND is_admin = FALSE RETURNING id, email',
+      [parsedId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'User not found or cannot unrestrict admin accounts.' });
+    }
+
+    return res.json({ message: 'User unrestricted successfully.' });
+  } catch (err) {
+    console.error('[AdminController] unrestrictUser error:', err.message);
+    return res.status(500).json({ error: 'Failed to unrestrict user.' });
+  }
+}
+
+module.exports = {
+  adminLogin,
+  listUsers,
+  createUser,
+  deleteUser,
+  getStats,
+  getActivity,
+  blockUser,
+  unblockUser,
+  getAnalytics,
+  getOnlineUsers,
+  getUserDetails,
+  restrictUser,
+  unrestrictUser,
+};
