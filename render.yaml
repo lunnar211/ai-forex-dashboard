@@ -29,7 +29,7 @@ services:
     name: ai-forex-backend
     runtime: node
     rootDir: ./backend
-    buildCommand: npm install
+    buildCommand: npm ci --omit=dev
     startCommand: node src/index.js
     healthCheckPath: /health
     envVars:
@@ -66,8 +66,6 @@ services:
         sync: false
       - key: CORS_ORIGIN
         sync: false           # Set to your frontend URL, e.g. https://ai-forex-frontend.onrender.com
-      - key: AI_ENGINE_URL
-        sync: false
 
   - type: web
     name: ai-forex-frontend
