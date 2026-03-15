@@ -48,6 +48,7 @@ services:
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       TWELVE_DATA_API_KEY: ${TWELVE_DATA_API_KEY:-}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
     depends_on:
