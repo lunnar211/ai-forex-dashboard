@@ -3,6 +3,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { pool } = require('../config/database');
+const { extractIP, parseUserAgent, geoLookup } = require('../services/geoService');
 
 const SALT_ROUNDS = 12;
 const TOKEN_EXPIRY = '7d';
@@ -51,11 +52,21 @@ async function register(req, res) {
     const user = result.rows[0];
     const token = signToken(user);
 
-    // Log registration activity (non-blocking)
-    pool.query(
-      'INSERT INTO user_activity (user_id, action, ip_address, user_agent) VALUES ($1, $2, $3, $4)',
-      [user.id, 'register', req.ip || null, req.headers['user-agent'] || null]
-    ).catch((err) => console.error('[Auth] Failed to log registration activity:', err.message));
+    // Log registration activity with geo data (non-blocking)
+    const regIP = extractIP(req);
+    const regUA = req.headers['user-agent'] || null;
+    const { device_type, browser, os } = parseUserAgent(regUA);
+    const redis = req.app.locals.redis;
+    geoLookup(regIP, redis).then((geo) => {
+      pool.query(
+        `INSERT INTO user_activity
+           (user_id, action, ip_address, country, country_code, city, region, isp,
+            latitude, longitude, user_agent, device_type, browser, os)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+        [user.id, 'register', regIP, geo.country, geo.country_code, geo.city,
+         geo.region, geo.isp, geo.latitude, geo.longitude, regUA, device_type, browser, os]
+      ).catch((err) => console.error('[Auth] Failed to log registration activity:', err.message));
+    }).catch(() => {});
 
     // Update last_active (non-blocking)
     pool.query(
@@ -105,11 +116,21 @@ async function login(req, res) {
 
     const token = signToken(user);
 
-    // Log login activity (non-blocking)
-    pool.query(
-      'INSERT INTO user_activity (user_id, action, ip_address, user_agent) VALUES ($1, $2, $3, $4)',
-      [user.id, 'login', req.ip || null, req.headers['user-agent'] || null]
-    ).catch((err) => console.error('[Auth] Failed to log login activity:', err.message));
+    // Log login activity with geo data (non-blocking)
+    const loginIP = extractIP(req);
+    const loginUA = req.headers['user-agent'] || null;
+    const { device_type: dt, browser: br, os: osName } = parseUserAgent(loginUA);
+    const redis = req.app.locals.redis;
+    geoLookup(loginIP, redis).then((geo) => {
+      pool.query(
+        `INSERT INTO user_activity
+           (user_id, action, ip_address, country, country_code, city, region, isp,
+            latitude, longitude, user_agent, device_type, browser, os)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+        [user.id, 'login', loginIP, geo.country, geo.country_code, geo.city,
+         geo.region, geo.isp, geo.latitude, geo.longitude, loginUA, dt, br, osName]
+      ).catch((err) => console.error('[Auth] Failed to log login activity:', err.message));
+    }).catch(() => {});
 
     // Update last_active (non-blocking)
     pool.query(

@@ -153,6 +153,73 @@ async function initSchema() {
         END IF;
       END $$;
     `);
+
+    // Extend action column to VARCHAR(100) if still VARCHAR(50)
+    await client.query(`
+      DO $$
+      BEGIN
+        IF EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'user_activity' AND column_name = 'action'
+            AND character_maximum_length < 100
+        ) THEN
+          ALTER TABLE user_activity ALTER COLUMN action TYPE VARCHAR(100);
+        END IF;
+      END $$;
+    `);
+
+    // Add enriched activity-tracking columns to user_activity if missing
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_activity' AND column_name = 'page') THEN
+          ALTER TABLE user_activity ADD COLUMN page VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_activity' AND column_name = 'symbol') THEN
+          ALTER TABLE user_activity ADD COLUMN symbol VARCHAR(50);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_activity' AND column_name = 'timeframe') THEN
+          ALTER TABLE user_activity ADD COLUMN timeframe VARCHAR(20);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_activity' AND column_name = 'prediction_direction') THEN
+          ALTER TABLE user_activity ADD COLUMN prediction_direction VARCHAR(10);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_activity' AND column_name = 'prediction_confidence') THEN
+          ALTER TABLE user_activity ADD COLUMN prediction_confidence NUMERIC(5,2);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_activity' AND column_name = 'country') THEN
+          ALTER TABLE user_activity ADD COLUMN country VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_activity' AND column_name = 'country_code') THEN
+          ALTER TABLE user_activity ADD COLUMN country_code VARCHAR(5);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_activity' AND column_name = 'city') THEN
+          ALTER TABLE user_activity ADD COLUMN city VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_activity' AND column_name = 'region') THEN
+          ALTER TABLE user_activity ADD COLUMN region VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_activity' AND column_name = 'isp') THEN
+          ALTER TABLE user_activity ADD COLUMN isp VARCHAR(200);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_activity' AND column_name = 'latitude') THEN
+          ALTER TABLE user_activity ADD COLUMN latitude NUMERIC(10,6);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_activity' AND column_name = 'longitude') THEN
+          ALTER TABLE user_activity ADD COLUMN longitude NUMERIC(10,6);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_activity' AND column_name = 'device_type') THEN
+          ALTER TABLE user_activity ADD COLUMN device_type VARCHAR(50);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_activity' AND column_name = 'browser') THEN
+          ALTER TABLE user_activity ADD COLUMN browser VARCHAR(100);
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_activity' AND column_name = 'os') THEN
+          ALTER TABLE user_activity ADD COLUMN os VARCHAR(100);
+        END IF;
+      END $$;
+    `);
+
     console.log('[DB] Schema initialised.');
 
     // Seed admin user from environment variables
