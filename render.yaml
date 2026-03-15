@@ -15,11 +15,13 @@ services:
     runtime: node
     plan: free
     rootDir: backend
-    buildCommand: npm ci
-    startCommand: npm start
+    buildCommand: npm install
+    startCommand: node src/index.js
     envVars:
       - key: NODE_ENV
         value: production
+      - key: PORT
+        value: 5000
       - key: DATABASE_URL
         fromDatabase:
           name: forex-db
@@ -30,26 +32,25 @@ services:
           type: redis
           property: connectionString
       - key: JWT_SECRET
-        generateValue: true
+        sync: false
       # Admin credentials – set these in the Render dashboard after deploy
       - key: ADMIN_EMAIL
         sync: false
       - key: ADMIN_PASSWORD
         sync: false
       # Set your AI provider key(s) in the Render dashboard after deploy
-      - key: GROQ_API_KEY
-        sync: false
       - key: OPENAI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
         sync: false
       - key: GEMINI_API_KEY
         sync: false
       - key: TWELVE_DATA_API_KEY
         sync: false
+      - key: ALPHA_VANTAGE_API_KEY
+        sync: false
       - key: CORS_ORIGIN
-        fromService:
-          name: ai-forex-frontend
-          type: web
-          envVarKey: RENDER_EXTERNAL_URL
+        sync: false
 
   # ── Frontend ─────────────────────────────────────────────────────────────────
   - type: web
@@ -57,14 +58,17 @@ services:
     runtime: node
     plan: free
     rootDir: frontend
-    buildCommand: npm ci && npm run build
+    buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
       - key: NEXT_PUBLIC_API_URL
         fromService:
           name: ai-forex-backend
           type: web
-          envVarKey: RENDER_EXTERNAL_URL
+          property: host
+          scheme: https
+      - key: NODE_ENV
+        value: production
 
   # ── Redis ─────────────────────────────────────────────────────────────────────
   - type: redis
