@@ -54,6 +54,10 @@ Once deployment is done:
    ```
    [DB] Admin user already exists — verified admin flag.
    ```
+   OR
+   ```
+   [DB] Admin user already exists — verified admin flag and synced password.
+   ```
 
 If you see either message, you're good to go!
 

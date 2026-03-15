@@ -33,7 +33,8 @@ After the backend restarts, check the logs:
 2. Click on **Logs** in the left sidebar
 3. Look for one of these messages:
    - `[DB] Admin user seeded.` (first time setup)
-   - `[DB] Admin user already exists — verified admin flag.` (subsequent restarts)
+   - `[DB] Admin user already exists — verified admin flag.` (subsequent restarts, password unchanged)
+   - `[DB] Admin user already exists — verified admin flag and synced password.` (subsequent restarts, password updated)
 
 ### Step 4: Test Admin Login
 

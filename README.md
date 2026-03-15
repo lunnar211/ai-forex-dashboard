@@ -34,8 +34,9 @@ The Blueprint (`render.yaml`) uses Docker and auto-provisions everything.
    - At least one AI key: `GROQ_API_KEY`, `OPENAI_API_KEY`, or `GEMINI_API_KEY`
 5. Click **Apply** – Render creates the database, Redis, backend, and frontend in one go.
 
-> `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `CORS_ORIGIN`, and `NEXT_PUBLIC_API_URL`
-> are all **auto-linked** between services – no manual wiring required.
+> `DATABASE_URL`, `REDIS_URL`, and `JWT_SECRET` are **auto-linked** between services.
+> `CORS_ORIGIN` (backend) and `NEXT_PUBLIC_API_URL` (frontend) must be set manually
+> after the services are created – use the URLs shown in your Render dashboard.
 
 ---
 

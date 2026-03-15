@@ -43,8 +43,15 @@ The Blueprint links these automatically – you do **not** need to set them manu
 | `DATABASE_URL` | Auto-linked to **forex-db** |
 | `REDIS_URL` | Auto-linked to **forex-redis** |
 | `JWT_SECRET` | Auto-generated secure secret |
-| `CORS_ORIGIN` | Auto-linked to frontend URL |
-| `NEXT_PUBLIC_API_URL` | Auto-linked to backend URL |
+
+#### Manually-Set Variables (Required After Deployment)
+
+These must be entered manually in the Render dashboard:
+
+| Variable | Service | Description |
+|---|---|---|
+| `CORS_ORIGIN` | **ai-forex-backend** | Set to your frontend URL, e.g. `https://ai-forex-frontend.onrender.com` |
+| `NEXT_PUBLIC_API_URL` | **ai-forex-frontend** | Set to your backend URL, e.g. `https://ai-forex-backend.onrender.com` |
 
 ## Post-Deployment Configuration
 
@@ -100,7 +107,7 @@ Look for these success messages:
 - [ ] `[ENV] Environment validation passed.`
 - [ ] `[DB] PostgreSQL connected.`
 - [ ] `[DB] Schema initialised.`
-- [ ] `[DB] Admin user seeded.` OR `[DB] Admin user already exists — verified admin flag.`
+- [ ] `[DB] Admin user seeded.` OR `[DB] Admin user already exists — verified admin flag.` OR `[DB] Admin user already exists — verified admin flag and synced password.`
 - [ ] `[Redis] Connected.` (or warning if not configured)
 - [ ] `[Server] AI Forex Backend running on port 5000`
 
