@@ -38,6 +38,22 @@ app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
+app.get('/', (req, res) => {
+  res.json({
+    name: 'AI Forex Dashboard API',
+    version: '1.0.0',
+    status: 'running',
+    endpoints: {
+      health: 'GET /health',
+      auth: '/auth',
+      forex: '/forex',
+      ai: '/ai',
+      admin: '/admin',
+      activity: '/activity',
+    },
+  });
+});
+
 app.use('/auth', authRoutes);
 app.use('/forex', forexRoutes);
 app.use('/ai', aiRoutes);
@@ -63,6 +79,7 @@ app.get('/health', healthRateLimiter, async (req, res) => {
       groq: process.env.GROQ_API_KEY ? 'configured' : 'not configured',
       openai: process.env.OPENAI_API_KEY ? 'configured' : 'not configured',
       gemini: process.env.GEMINI_API_KEY ? 'configured' : 'not configured',
+      openrouter: process.env.OPENROUTER_API_KEY ? 'configured' : 'not configured',
     },
     forexData: process.env.TWELVE_DATA_API_KEY ? 'configured' : 'mock mode',
   };
