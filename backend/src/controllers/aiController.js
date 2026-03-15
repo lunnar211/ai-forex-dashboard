@@ -12,6 +12,31 @@ const { extractIP, parseUserAgent, geoLookup } = require('../services/geoService
 const WATCHED_PAIRS = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'XAU/USD'];
 const RATE_LIMIT_WINDOW = 3600; // 1 hour in seconds
 const RATE_LIMIT_MAX = 20;
+const AI_PROVIDER_TIMEOUT_MS = 30000; // 30 seconds per AI provider call
+
+// Allowed symbols and timeframes for predict endpoint
+const ALLOWED_SYMBOLS = new Set([
+  'EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'XAU/USD',
+  'USD/CAD', 'USD/CHF', 'NZD/USD', 'EUR/GBP', 'EUR/JPY',
+  'GBP/JPY', 'XAG/USD',
+]);
+const ALLOWED_TIMEFRAMES = new Set(['15min', '1h', '4h', '1day']);
+
+// Maximum file size (in bytes) that can be safely base64-encoded for Gemini (7.5 MB)
+const MAX_IMAGE_BYTES_FOR_GEMINI = 7.5 * 1024 * 1024;
+
+/**
+ * Wraps a promise with a timeout.  Rejects with an error if the promise does
+ * not settle within `ms` milliseconds.
+ */
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error(`AI provider timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
 
 // ─── Rate-limit helper ────────────────────────────────────────────────────────
 
@@ -147,6 +172,15 @@ async function predict(req, res) {
   const userId = req.user.id;
   const redis = req.app.locals.redis;
 
+  // Validate symbol and timeframe
+  const normalizedSymbol = typeof symbol === 'string' ? symbol.toUpperCase() : '';
+  if (!ALLOWED_SYMBOLS.has(normalizedSymbol)) {
+    return res.status(400).json({ error: `Invalid symbol. Allowed symbols: ${[...ALLOWED_SYMBOLS].join(', ')}.` });
+  }
+  if (!ALLOWED_TIMEFRAMES.has(timeframe)) {
+    return res.status(400).json({ error: `Invalid timeframe. Allowed timeframes: ${[...ALLOWED_TIMEFRAMES].join(', ')}.` });
+  }
+
   // Check if user is restricted from using AI predictions
   if (req.user.is_restricted) {
     return res.status(403).json({ error: 'Your account has been restricted. AI predictions are unavailable. Please contact support.' });
@@ -178,7 +212,10 @@ async function predict(req, res) {
       ['openrouter', openrouterService],
     ]) {
       try {
-        prediction = await service.getAIPrediction(symbol, timeframe, indicators, candles);
+        prediction = await withTimeout(
+          service.getAIPrediction(symbol, timeframe, indicators, candles),
+          AI_PROVIDER_TIMEOUT_MS
+        );
         prediction.aiProvider = name;
         break;
       } catch (err) {
@@ -200,7 +237,6 @@ async function predict(req, res) {
     const actIP = extractIP(req);
     const actUA = req.headers['user-agent'] || null;
     const { device_type, browser, os } = parseUserAgent(actUA);
-    const redis = req.app.locals.redis;
     geoLookup(actIP, redis).then((geo) => {
       pool.query(
         `INSERT INTO user_activity
@@ -371,6 +407,11 @@ async function analyzeImage(req, res) {
   const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
   if (!allowedTypes.includes(req.file.mimetype)) {
     return res.status(400).json({ error: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.' });
+  }
+
+  // Validate file size before base64 encoding to avoid Gemini payload limits
+  if (req.file.size > MAX_IMAGE_BYTES_FOR_GEMINI) {
+    return res.status(413).json({ error: 'Image file is too large. Maximum allowed size is 7.5 MB.' });
   }
 
   const { GoogleGenerativeAI } = require('@google/generative-ai');

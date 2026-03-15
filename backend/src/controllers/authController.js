@@ -10,7 +10,7 @@ const TOKEN_EXPIRY = '7d';
 
 function signToken(user) {
   return jwt.sign(
-    { id: user.id, email: user.email },
+    { id: user.id, email: user.email, isAdmin: Boolean(user.is_admin) },
     process.env.JWT_SECRET,
     { expiresIn: TOKEN_EXPIRY }
   );
@@ -95,7 +95,7 @@ async function login(req, res) {
 
   try {
     const result = await pool.query(
-      'SELECT id, email, password, name, is_blocked, created_at FROM users WHERE email = $1',
+      'SELECT id, email, password, name, is_admin, is_blocked, created_at FROM users WHERE email = $1',
       [email.toLowerCase()]
     );
 
@@ -141,7 +141,7 @@ async function login(req, res) {
     return res.json({
       message: 'Login successful.',
       token,
-      user: { id: user.id, email: user.email, name: user.name, createdAt: user.created_at },
+      user: { id: user.id, email: user.email, name: user.name, isAdmin: Boolean(user.is_admin), createdAt: user.created_at },
     });
   } catch (err) {
     console.error('[AuthController] login error:', err.message);
@@ -153,7 +153,7 @@ async function login(req, res) {
 async function getMe(req, res) {
   try {
     const result = await pool.query(
-      'SELECT id, email, name, created_at FROM users WHERE id = $1',
+      'SELECT id, email, name, is_admin, created_at FROM users WHERE id = $1',
       [req.user.id]
     );
 
@@ -163,7 +163,7 @@ async function getMe(req, res) {
 
     const user = result.rows[0];
     return res.json({
-      user: { id: user.id, email: user.email, name: user.name, createdAt: user.created_at },
+      user: { id: user.id, email: user.email, name: user.name, isAdmin: Boolean(user.is_admin), createdAt: user.created_at },
     });
   } catch (err) {
     console.error('[AuthController] getMe error:', err.message);
@@ -171,4 +171,25 @@ async function getMe(req, res) {
   }
 }
 
-module.exports = { register, login, getMe };
+// POST /auth/logout  (requires auth middleware)
+async function logout(req, res) {
+  // If Redis is available, blacklist the token until it naturally expires.
+  const authHeader = req.headers['authorization'] || req.headers['Authorization'];
+  // 'Bearer '.length === 7
+  const token = authHeader ? authHeader.slice(7) : null;
+  if (token && req.app.locals.redis) {
+    try {
+      // Determine remaining TTL from the decoded token
+      const decoded = require('jsonwebtoken').decode(token);
+      const ttl = decoded?.exp ? decoded.exp - Math.floor(Date.now() / 1000) : 7 * 24 * 3600;
+      if (ttl > 0) {
+        await req.app.locals.redis.setEx(`blacklist:${token}`, ttl, '1');
+      }
+    } catch (err) {
+      console.warn('[Auth] Failed to blacklist token on logout:', err.message);
+    }
+  }
+  return res.json({ message: 'Logged out successfully.' });
+}
+
+module.exports = { register, login, getMe, logout };

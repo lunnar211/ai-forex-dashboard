@@ -58,6 +58,11 @@ export const auth = {
     apiClient.post('/auth/login', { email, password }).then((r) => r.data),
 
   me: () => apiClient.get('/auth/me').then((r) => r.data),
+
+  logout: () =>
+    apiClient.post('/auth/logout').catch(() => {
+      // logout is best-effort — ignore network failures
+    }),
 };
 
 export const admin = {
@@ -176,12 +181,23 @@ export const ai = {
 
   getSignals: () => apiClient.get('/ai/signals').then((r) => r.data),
 
-  analyzeImage: (formData: FormData) =>
-    apiClient
+  analyzeImage: (formData: FormData) => {
+    const file = formData.get('image');
+    if (file instanceof File) {
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        return Promise.reject(new Error('Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.'));
+      }
+      if (file.size > 7.5 * 1024 * 1024) {
+        return Promise.reject(new Error('Image file is too large. Maximum allowed size is 7.5 MB.'));
+      }
+    }
+    return apiClient
       .post('/ai/analyze-image', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
-      .then((r) => r.data),
+      .then((r) => r.data);
+  },
 };
 
 export default apiClient;

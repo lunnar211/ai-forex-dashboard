@@ -228,6 +228,16 @@ async function getActivity(req, res) {
   const limit = Math.min(parseInt(req.query.limit, 10) || 50, 200);
   const action = req.query.action || null;
 
+  // Whitelist allowed action values to prevent unintended filtering
+  const ALLOWED_ACTIVITY_ACTIONS = new Set([
+    'login', 'register', 'logout', 'page_view', 'symbol_view',
+    'timeframe_change', 'tool_use', 'market_view',
+    'prediction_request', 'prediction_result', 'image_upload',
+  ]);
+  if (action && !ALLOWED_ACTIVITY_ACTIONS.has(action)) {
+    return res.status(400).json({ error: 'Invalid action filter.' });
+  }
+
   try {
     const params = [limit];
     const actionFilter = action ? 'AND ua.action = $2' : '';
