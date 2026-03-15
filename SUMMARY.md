@@ -22,7 +22,7 @@ The backend environment variables `ADMIN_EMAIL` and `ADMIN_PASSWORD` are not con
      ```
    - If your password contains special characters such as `$`, wrap in single quotes when using a shell.
 4. **Save and Wait**: Render will auto-redeploy (takes 2-3 minutes)
-5. **Verify in Logs**: Look for `[DB] Admin user seeded.`
+5. **Verify in Logs**: Look for `[DB] Admin user seeded.` (or `[DB] Admin user already exists — verified admin flag.` / `[DB] Admin user already exists — verified admin flag and synced password.` on subsequent restarts)
 6. **Test Login**: Go to https://ai-forex-frontend.onrender.com/admin
 
 ## What Changed
@@ -67,6 +67,10 @@ After setting environment variables and restarting:
    or
    ```
    [DB] Admin user already exists — verified admin flag.
+   ```
+   or (when the password was updated to match the env var)
+   ```
+   [DB] Admin user already exists — verified admin flag and synced password.
    ```
 
 2. **Test Admin Login**:
