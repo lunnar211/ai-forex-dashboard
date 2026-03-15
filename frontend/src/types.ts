@@ -1,6 +1,45 @@
 export type ForexSymbol = 'EUR/USD' | 'GBP/USD' | 'USD/JPY' | 'AUD/USD' | 'XAU/USD';
 export type Timeframe = '15min' | '1h' | '4h' | '1day';
 
+export type PlatformCategory = 'forex' | 'metals' | 'crypto' | 'stocks' | 'indices' | 'commodities';
+
+export interface PlatformInstrument {
+  symbol: string;
+  name: string;
+}
+
+export interface PlatformCategoryDef {
+  id: PlatformCategory;
+  name: string;
+  description: string;
+  color: 'blue' | 'yellow' | 'purple' | 'green' | 'red' | 'orange';
+  icon: string;
+  instruments: PlatformInstrument[];
+}
+
+export interface MarketInterestRow {
+  symbol: string | null;
+  category: string | null;
+  views: string;
+  unique_users: string;
+}
+
+export interface ToolUsageRow {
+  tool: string | null;
+  uses: string;
+  unique_users: string;
+}
+
+export interface OnlineUser {
+  id: number;
+  email: string;
+  name: string | null;
+  last_active: string;
+  is_blocked: boolean;
+  is_restricted: boolean;
+  created_at: string;
+}
+
 export interface User {
   id: number;
   email: string;

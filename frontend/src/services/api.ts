@@ -57,6 +57,11 @@ export const admin = {
       .post('/admin/users', { email, password, name }, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.data),
 
+  getUserDetails: (token: string, id: number) =>
+    apiClient
+      .get(`/admin/users/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.data),
+
   deleteUser: (token: string, id: number) =>
     apiClient
       .delete(`/admin/users/${id}`, { headers: { Authorization: `Bearer ${token}` } })
@@ -72,6 +77,16 @@ export const admin = {
       .patch(`/admin/users/${id}/unblock`, {}, { headers: { Authorization: `Bearer ${token}` } })
       .then((r) => r.data),
 
+  restrictUser: (token: string, id: number) =>
+    apiClient
+      .patch(`/admin/users/${id}/restrict`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.data),
+
+  unrestrictUser: (token: string, id: number) =>
+    apiClient
+      .patch(`/admin/users/${id}/unrestrict`, {}, { headers: { Authorization: `Bearer ${token}` } })
+      .then((r) => r.data),
+
   getStats: (token: string) =>
     apiClient.get('/admin/stats', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data),
 
@@ -82,6 +97,12 @@ export const admin = {
         headers: { Authorization: `Bearer ${token}` },
       })
       .then((r) => r.data),
+
+  getAnalytics: (token: string) =>
+    apiClient.get('/admin/analytics', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data),
+
+  getOnlineUsers: (token: string) =>
+    apiClient.get('/admin/online-users', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data),
 };
 
 interface BackendCandle {

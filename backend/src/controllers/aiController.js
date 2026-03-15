@@ -146,6 +146,11 @@ async function predict(req, res) {
   const userId = req.user.id;
   const redis = req.app.locals.redis;
 
+  // Check if user is restricted from using AI predictions
+  if (req.user.is_restricted) {
+    return res.status(403).json({ error: 'Your account has been restricted. AI predictions are unavailable. Please contact support.' });
+  }
+
   // Rate limit
   const rateCheck = await checkRateLimit(redis, userId);
   if (!rateCheck.allowed) {
@@ -189,6 +194,18 @@ async function predict(req, res) {
 
     // 5. Persist
     const saved = await savePrediction(userId, symbol, timeframe, prediction);
+
+    // Log tool_use activity and update last_active (non-blocking)
+    pool.query(
+      'INSERT INTO user_activity (user_id, action, ip_address, metadata) VALUES ($1, $2, $3, $4)',
+      [userId, 'tool_use', req.ip || null,
+        JSON.stringify({ tool: 'ai_predict', symbol, timeframe })]
+    ).catch((err) => console.error('[AI] Failed to log tool_use:', err.message));
+
+    pool.query(
+      'UPDATE users SET last_active = NOW() WHERE id = $1',
+      [userId]
+    ).catch((err) => console.error('[AI] Failed to update last_active:', err.message));
 
     return res.json({
       predictionId: saved?.id || null,
@@ -406,6 +423,18 @@ Respond ONLY with valid JSON. No markdown, no extra text.`;
     } catch (dbErr) {
       console.error('[AIController] analyzeImage save error:', dbErr.message);
     }
+
+    // Log tool_use activity and update last_active (non-blocking)
+    pool.query(
+      'INSERT INTO user_activity (user_id, action, ip_address, metadata) VALUES ($1, $2, $3, $4)',
+      [userId, 'tool_use', req.ip || null,
+        JSON.stringify({ tool: 'image_analysis' })]
+    ).catch((err) => console.error('[AI] Failed to log tool_use:', err.message));
+
+    pool.query(
+      'UPDATE users SET last_active = NOW() WHERE id = $1',
+      [userId]
+    ).catch((err) => console.error('[AI] Failed to update last_active:', err.message));
 
     return res.json({ analysis });
   } catch (err) {

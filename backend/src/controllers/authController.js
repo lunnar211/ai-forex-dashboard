@@ -57,6 +57,12 @@ async function register(req, res) {
       [user.id, 'register', req.ip || null, req.headers['user-agent'] || null]
     ).catch((err) => console.error('[Auth] Failed to log registration activity:', err.message));
 
+    // Update last_active (non-blocking)
+    pool.query(
+      'UPDATE users SET last_active = NOW() WHERE id = $1',
+      [user.id]
+    ).catch((err) => console.error('[Auth] Failed to update last_active:', err.message));
+
     return res.status(201).json({
       message: 'Account created successfully.',
       token,
@@ -104,6 +110,12 @@ async function login(req, res) {
       'INSERT INTO user_activity (user_id, action, ip_address, user_agent) VALUES ($1, $2, $3, $4)',
       [user.id, 'login', req.ip || null, req.headers['user-agent'] || null]
     ).catch((err) => console.error('[Auth] Failed to log login activity:', err.message));
+
+    // Update last_active (non-blocking)
+    pool.query(
+      'UPDATE users SET last_active = NOW() WHERE id = $1',
+      [user.id]
+    ).catch((err) => console.error('[Auth] Failed to update last_active:', err.message));
 
     return res.json({
       message: 'Login successful.',

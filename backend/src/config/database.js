@@ -112,6 +112,47 @@ async function initSchema() {
       CREATE INDEX IF NOT EXISTS idx_user_activity_user_id ON user_activity(user_id);
       CREATE INDEX IF NOT EXISTS idx_user_activity_created ON user_activity(created_at DESC);
     `);
+
+    // ── Schema upgrades (safe to run on every startup) ─────────────────────
+
+    // Add last_active column to users if missing
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'users' AND column_name = 'last_active'
+        ) THEN
+          ALTER TABLE users ADD COLUMN last_active TIMESTAMPTZ;
+        END IF;
+      END $$;
+    `);
+
+    // Add is_restricted column to users if missing
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'users' AND column_name = 'is_restricted'
+        ) THEN
+          ALTER TABLE users ADD COLUMN is_restricted BOOLEAN DEFAULT FALSE;
+        END IF;
+      END $$;
+    `);
+
+    // Add metadata JSONB column to user_activity if missing
+    await client.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'user_activity' AND column_name = 'metadata'
+        ) THEN
+          ALTER TABLE user_activity ADD COLUMN metadata JSONB;
+        END IF;
+      END $$;
+    `);
     console.log('[DB] Schema initialised.');
 
     // Seed admin user from environment variables
