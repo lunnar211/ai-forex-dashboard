@@ -109,7 +109,9 @@ const PLATFORM_CATEGORIES: PlatformCategoryDef[] = [
   },
 ];
 
-const CATEGORY_COLORS = {
+const CATEGORY_COLORS: Record<string, {
+  card: string; active: string; badge: string; button: string; text: string;
+}> = {
   blue: {
     card: 'border-blue-500/40 bg-blue-900/10',
     active: 'border-blue-500 bg-blue-900/30',
@@ -174,14 +176,10 @@ export default function Platforms() {
   const [error, setError] = useState('');
   const [chartError, setChartError] = useState('');
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
-    if (mounted && !isAuthenticated) {
-      router.replace('/login');
-    }
+    if (mounted && !isAuthenticated) router.replace('/login');
   }, [mounted, isAuthenticated, router]);
 
   const fetchCandles = useCallback(async () => {
@@ -273,7 +271,6 @@ export default function Platforms() {
       <div className="flex-1 flex flex-col min-w-0">
         <TopNav />
         <main className="flex-1 p-4 md:p-6 space-y-6">
-          {/* Header */}
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
               🌐 World Trading Platforms
@@ -306,7 +303,7 @@ export default function Platforms() {
             })}
           </div>
 
-          {/* Instruments in selected category */}
+          {/* Instruments */}
           <div className={clsx('rounded-2xl border p-4', colors.card)}>
             <div className="flex items-center gap-2 mb-3">
               <span className="text-lg">{selectedCategory.icon}</span>
@@ -334,10 +331,9 @@ export default function Platforms() {
             </div>
           </div>
 
-          {/* Chart + Prediction for selected instrument */}
+          {/* Chart + Prediction */}
           {selectedSymbol && (
             <div className="space-y-5">
-              {/* Instrument header */}
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-3">
@@ -362,7 +358,6 @@ export default function Platforms() {
                   </p>
                 </div>
 
-                {/* Timeframe selector */}
                 <div className="flex items-center gap-1 bg-[#1e293b] border border-[#334155] rounded-xl p-1">
                   {TIMEFRAMES.map((tf) => (
                     <button
@@ -381,7 +376,7 @@ export default function Platforms() {
                 </div>
               </div>
 
-              {/* Chart */}
+              {/* Chart — FIX 1: pass all 3 required props */}
               <div className="bg-[#1e293b] border border-[#334155] rounded-2xl overflow-hidden">
                 <div className="px-4 py-3 border-b border-[#334155] flex items-center justify-between">
                   <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider">Live Chart</p>
@@ -395,11 +390,14 @@ export default function Platforms() {
                 {chartError ? (
                   <div className="p-6 text-sm text-red-400">{chartError}</div>
                 ) : (
-                  <ChartPanel candles={candles} />
+                  <ChartPanel
+                    candles={candles}
+                    symbol={selectedSymbol}
+                    timeframe={timeframe}
+                  />
                 )}
               </div>
 
-              {/* Predict button */}
               <div className="flex justify-center">
                 <button
                   onClick={handlePredict}
@@ -432,21 +430,32 @@ export default function Platforms() {
                 </div>
               )}
 
-              {/* Prediction + Indicators */}
+              {/* FIX 2 & 3: correct props for IndicatorGauges and PredictionCard */}
               <div ref={predictionRef} className="space-y-5">
-                {indicators && <IndicatorGauges indicators={indicators} />}
-                {prediction && <PredictionCard prediction={prediction} symbol={selectedSymbol} timeframe={timeframe} />}
+                {indicators && (
+                  <IndicatorGauges
+                    rsi={indicators.rsi ?? null}
+                    macd={indicators.macd ?? null}
+                  />
+                )}
+                {prediction && (
+                  <PredictionCard
+                    prediction={prediction}
+                    indicators={indicators}
+                    loading={false}
+                    symbol={selectedSymbol}
+                  />
+                )}
               </div>
             </div>
           )}
 
-          {/* Empty state when no instrument selected */}
           {!selectedSymbol && (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <div className="text-5xl mb-4">{selectedCategory.icon}</div>
               <p className="text-white font-semibold text-lg">Select an instrument above</p>
               <p className="text-[#475569] text-sm mt-2">
-                Choose any {selectedCategory.name} instrument to view its live chart and get AI-powered predictions.
+                Choose any {selectedCategory.name} instrument to view its live chart and get AI predictions.
               </p>
             </div>
           )}
