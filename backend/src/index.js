@@ -18,6 +18,7 @@ const forexRoutes = require('./routes/forex');
 const aiRoutes = require('./routes/ai');
 const adminRoutes = require('./routes/admin');
 const activityRoutes = require('./routes/activity');
+const marketRoutes = require('./routes/market');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -50,6 +51,7 @@ app.get('/', (req, res) => {
       ai: '/ai',
       admin: '/admin',
       activity: '/activity',
+      market: '/api/market',
     },
   });
 });
@@ -59,6 +61,7 @@ app.use('/forex', forexRoutes);
 app.use('/ai', aiRoutes);
 app.use('/admin', adminRoutes);
 app.use('/activity', activityRoutes);
+app.use('/api/market', marketRoutes);
 
 // ─── Health endpoint ─────────────────────────────────────────────────────────
 
@@ -80,6 +83,12 @@ app.get('/health', healthRateLimiter, async (req, res) => {
       openai: process.env.OPENAI_API_KEY ? 'configured' : 'not configured',
       gemini: process.env.GEMINI_API_KEY ? 'configured' : 'not configured',
       openrouter: process.env.OPENROUTER_API_KEY ? 'configured' : 'not configured',
+      anthropic: process.env.ANTHROPIC_API_KEY ? 'configured' : 'not configured',
+    },
+    marketData: {
+      finnhub:    process.env.FINNHUB_API_KEY    ? 'configured' : 'not configured',
+      newsdata:   process.env.NEWSDATA_API_KEY   ? 'configured' : 'not configured',
+      polymarket: process.env.POLYMARKET_API_KEY ? 'configured' : 'not configured',
     },
     forexData: process.env.TWELVE_DATA_API_KEY ? 'configured' : 'mock mode',
   };

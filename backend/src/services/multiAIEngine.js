@@ -20,7 +20,8 @@ const Groq                   = require('groq-sdk');
 const OpenAI                 = require('openai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const axios                  = require('axios');
-const MASTER_PROMPT          = require('./masterPrompt');
+const { buildMasterPrompt }  = require('./masterPrompt');
+const { getAllMarketData }    = require('./marketDataService');
 
 // ── Provider weights ───────────────────────────────────────────────────────────
 const WEIGHTS = {
@@ -43,13 +44,13 @@ function withTimeout(promise, ms) {
 
 // ── Individual AI callers ──────────────────────────────────────────────────────
 
-async function callClaude(symbol, timeframe) {
+async function callClaude(symbol, timeframe, systemPrompt) {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error('No ANTHROPIC_API_KEY');
   const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const msg = await client.messages.create({
     model: 'claude-sonnet-4-20250514',
     max_tokens: 2000,
-    system: MASTER_PROMPT,
+    system: systemPrompt,
     messages: [{
       role: 'user',
       content: `Analyse: Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`,
@@ -58,14 +59,14 @@ async function callClaude(symbol, timeframe) {
   return parseJSON(msg.content[0].text, 'claude');
 }
 
-async function callGroq(symbol, timeframe) {
+async function callGroq(symbol, timeframe, systemPrompt) {
   if (!process.env.GROQ_API_KEY) throw new Error('No GROQ_API_KEY');
   const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
   const res = await client.chat.completions.create({
     model: 'llama-3.3-70b-versatile',
     max_tokens: 2000,
     messages: [
-      { role: 'system', content: MASTER_PROMPT },
+      { role: 'system', content: systemPrompt },
       {
         role: 'user',
         content: `Analyse: Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`,
@@ -75,7 +76,7 @@ async function callGroq(symbol, timeframe) {
   return parseJSON(res.choices[0].message.content, 'groq');
 }
 
-async function callOpenAI(symbol, timeframe) {
+async function callOpenAI(symbol, timeframe, systemPrompt) {
   if (!process.env.OPENAI_API_KEY) throw new Error('No OPENAI_API_KEY');
   const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   const res = await client.chat.completions.create({
@@ -83,7 +84,7 @@ async function callOpenAI(symbol, timeframe) {
     max_tokens: 2000,
     response_format: { type: 'json_object' },
     messages: [
-      { role: 'system', content: MASTER_PROMPT },
+      { role: 'system', content: systemPrompt },
       {
         role: 'user',
         content: `Analyse: Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`,
@@ -93,17 +94,17 @@ async function callOpenAI(symbol, timeframe) {
   return parseJSON(res.choices[0].message.content, 'openai');
 }
 
-async function callGemini(symbol, timeframe) {
+async function callGemini(symbol, timeframe, systemPrompt) {
   if (!process.env.GEMINI_API_KEY) throw new Error('No GEMINI_API_KEY');
   const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
   const result = await model.generateContent(
-    `${MASTER_PROMPT}\n\nAnalyse: Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`
+    `${systemPrompt}\n\nAnalyse: Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`
   );
   return parseJSON(result.response.text(), 'gemini');
 }
 
-async function callOpenRouter(symbol, timeframe) {
+async function callOpenRouter(symbol, timeframe, systemPrompt) {
   if (!process.env.OPENROUTER_API_KEY) throw new Error('No OPENROUTER_API_KEY');
   const res = await axios.post(
     'https://openrouter.ai/api/v1/chat/completions',
@@ -111,7 +112,7 @@ async function callOpenRouter(symbol, timeframe) {
       model: 'meta-llama/llama-3.1-405b-instruct',
       max_tokens: 2000,
       messages: [
-        { role: 'system', content: MASTER_PROMPT },
+        { role: 'system', content: systemPrompt },
         {
           role: 'user',
           content: `Analyse: Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`,
@@ -358,14 +359,26 @@ function normaliseMultiAI(consensus, symbol) {
 const PROVIDER_TIMEOUT_MS = 30000;
 
 async function generateMultiAIPrediction(symbol, timeframe) {
+  console.log(`[MultiAI] Fetching live market data for ${symbol}…`);
+  const marketData = await getAllMarketData(symbol);
+
+  if (marketData.quote) {
+    console.log(`[MultiAI] Live price: ${marketData.quote.current_price} (${symbol})`);
+  } else {
+    console.warn('[MultiAI] No live price data — AI will use training knowledge');
+  }
+
+  // Build prompt enriched with live price, sentiment, and news
+  const livePrompt = buildMasterPrompt(marketData);
+
   console.log(`[MultiAI] Starting parallel analysis: ${symbol} ${timeframe}`);
 
   const [claude, groq, openaiRes, gemini, openrouter] = await Promise.allSettled([
-    withTimeout(callClaude(symbol, timeframe),     PROVIDER_TIMEOUT_MS),
-    withTimeout(callGroq(symbol, timeframe),       PROVIDER_TIMEOUT_MS),
-    withTimeout(callOpenAI(symbol, timeframe),     PROVIDER_TIMEOUT_MS),
-    withTimeout(callGemini(symbol, timeframe),     PROVIDER_TIMEOUT_MS),
-    withTimeout(callOpenRouter(symbol, timeframe), PROVIDER_TIMEOUT_MS),
+    withTimeout(callClaude(symbol, timeframe, livePrompt),     PROVIDER_TIMEOUT_MS),
+    withTimeout(callGroq(symbol, timeframe, livePrompt),       PROVIDER_TIMEOUT_MS),
+    withTimeout(callOpenAI(symbol, timeframe, livePrompt),     PROVIDER_TIMEOUT_MS),
+    withTimeout(callGemini(symbol, timeframe, livePrompt),     PROVIDER_TIMEOUT_MS),
+    withTimeout(callOpenRouter(symbol, timeframe, livePrompt), PROVIDER_TIMEOUT_MS),
   ]);
 
   const results = [
@@ -377,7 +390,14 @@ async function generateMultiAIPrediction(symbol, timeframe) {
   ];
 
   const consensus = buildConsensus(results, symbol, timeframe);
-  return normaliseMultiAI(consensus, symbol);
+  const normalised = normaliseMultiAI(consensus, symbol);
+
+  // Attach live price metadata so the frontend can display it
+  normalised.live_price_used = Boolean(marketData.quote);
+  normalised.live_price      = marketData.quote?.current_price ?? null;
+  normalised.live_change_pct = marketData.quote?.change_pct    ?? null;
+
+  return normalised;
 }
 
 module.exports = { generateMultiAIPrediction };

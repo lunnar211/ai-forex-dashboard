@@ -155,4 +155,48 @@ REQUIRED JSON OUTPUT FORMAT — STRICT — NO MARKDOWN
 
 Respond ONLY with valid JSON. No markdown. No extra text outside the JSON object.`;
 
-module.exports = { MASTER_SYSTEM_PROMPT };
+/**
+ * buildMasterPrompt(marketData)
+ *
+ * Returns the master system prompt string, optionally enriched with live
+ * market data fetched from Finnhub/NewsData/Polymarket.
+ *
+ * @param {object|null} marketData  - Result of getAllMarketData(); may be null.
+ * @returns {string}
+ */
+function buildMasterPrompt(marketData) {
+  const quote     = marketData?.quote     || null;
+  const sentiment = marketData?.sentiment || null;
+  const news      = marketData?.news      || null;
+
+  const liveSection = quote
+    ? `
+═══════════════════════════════════════════════
+LIVE MARKET DATA — USE THIS FOR YOUR ANALYSIS
+═══════════════════════════════════════════════
+Current Price:   ${quote.current_price}
+Open:            ${quote.open}
+High (today):    ${quote.high}
+Low (today):     ${quote.low}
+Previous Close:  ${quote.previous_close}
+Change:          ${quote.change} (${quote.change_pct}%)
+Data Source:     Finnhub Live Feed
+Timestamp:       ${quote.timestamp}
+${sentiment ? `
+Market Sentiment (Finnhub):
+  Bullish: ${sentiment.bullish_pct}%
+  Bearish: ${sentiment.bearish_pct}%
+  Buzz Score: ${sentiment.buzz_score}
+` : ''}
+${news?.articles?.length
+  ? `Latest News Headlines (use for sentiment context):
+${news.articles.map((a, i) => `  ${i + 1}. [${a.sentiment}] ${a.title}`).join('\n')}
+`
+  : ''}
+`
+    : 'Note: Live price data unavailable. Use your training knowledge for current price estimates.\n';
+
+  return `${liveSection}\n${MASTER_SYSTEM_PROMPT}`;
+}
+
+module.exports = { MASTER_SYSTEM_PROMPT, buildMasterPrompt };
