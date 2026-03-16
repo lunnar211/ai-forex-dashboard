@@ -70,4 +70,20 @@ function trackActivity(req, res) {
   }).catch((err) => console.error('[ActivityController] geo lookup failed:', err.message));
 }
 
-module.exports = { trackActivity };
+/**
+ * POST /activity/ping
+ * Lightweight heartbeat to update last_active and maintain online presence.
+ */
+function ping(req, res) {
+  const userId = req.user.id;
+
+  // Respond immediately, update in the background
+  res.status(204).send();
+
+  pool.query(
+    'UPDATE users SET last_active = NOW() WHERE id = $1',
+    [userId]
+  ).catch((err) => console.error('[ActivityController] ping update failed:', err.message));
+}
+
+module.exports = { trackActivity, ping };

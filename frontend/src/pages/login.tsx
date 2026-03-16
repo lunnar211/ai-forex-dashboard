@@ -198,6 +198,12 @@ export default function Login() {
                   </span>
                 ) : 'Sign In to Dashboard'}
               </button>
+
+              <div className="text-right mt-2">
+                <Link href="/forgot-password" className="text-xs text-[#64748b] hover:text-blue-400 transition-colors">
+                  Forgot Password?
+                </Link>
+              </div>
             </form>
 
             <div className="mt-6 pt-6 border-t border-[#334155] text-center">

@@ -220,6 +220,65 @@ async function initSchema() {
       END $$;
     `);
 
+    // ── Email verification columns ──────────────────────────────────────────
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS verify_code VARCHAR(6);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS verify_code_expires TIMESTAMPTZ;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_code VARCHAR(6);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_code_expires TIMESTAMPTZ;
+    `);
+
+    // ── Session tracking columns ─────────────────────────────────────────────
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS last_login TIMESTAMPTZ;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS last_ip VARCHAR(45);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS login_count INTEGER DEFAULT 0;
+    `);
+
+    // ── Cookie consent columns ───────────────────────────────────────────────
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS cookies_accepted BOOLEAN DEFAULT FALSE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS cookies_accepted_at TIMESTAMPTZ;
+    `);
+
+    // ── Broker integration columns ───────────────────────────────────────────
+    await client.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS broker_name VARCHAR(100);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS broker_connected BOOLEAN DEFAULT FALSE;
+    `);
+
+    // ── Online sessions table ────────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS online_sessions (
+        id             SERIAL PRIMARY KEY,
+        user_id        INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        session_token  VARCHAR(255) UNIQUE NOT NULL,
+        ip_address     VARCHAR(45),
+        country        VARCHAR(100),
+        city           VARCHAR(100),
+        device_type    VARCHAR(50),
+        browser        VARCHAR(100),
+        last_ping      TIMESTAMPTZ DEFAULT NOW(),
+        created_at     TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_online_sessions_user_id  ON online_sessions(user_id);
+      CREATE INDEX IF NOT EXISTS idx_online_sessions_last_ping ON online_sessions(last_ping DESC);
+    `);
+
+    // ── Email logs table ─────────────────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS email_logs (
+        id       SERIAL PRIMARY KEY,
+        user_id  INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        type     VARCHAR(50),
+        email    VARCHAR(255),
+        sent_at  TIMESTAMPTZ DEFAULT NOW(),
+        status   VARCHAR(20) DEFAULT 'sent'
+      );
+      CREATE INDEX IF NOT EXISTS idx_email_logs_user_id ON email_logs(user_id);
+    `);
+
     console.log('[DB] Schema initialised.');
 
     // Seed admin user from environment variables
