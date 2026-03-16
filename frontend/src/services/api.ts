@@ -1,6 +1,12 @@
 import axios from 'axios';
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+// In the browser, route all requests through the Next.js /api rewrite proxy
+// (same-origin, no CORS) rather than directly to the backend URL.
+// During SSR the window object is absent, so fall back to the direct backend URL.
+const BASE_URL =
+  typeof window !== 'undefined'
+    ? '/api'
+    : (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000');
 
 const apiClient = axios.create({
   baseURL: BASE_URL,
