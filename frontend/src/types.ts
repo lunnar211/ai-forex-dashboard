@@ -1,7 +1,7 @@
 export type ForexSymbol = 'EUR/USD' | 'GBP/USD' | 'USD/JPY' | 'AUD/USD' | 'XAU/USD';
 export type Timeframe = '15min' | '1h' | '4h' | '1day';
 
-export type PlatformCategory = 'forex' | 'metals' | 'crypto' | 'stocks' | 'indices' | 'commodities';
+export type PlatformCategory = 'forex' | 'metals' | 'crypto' | 'stocks' | 'indices' | 'commodities' | 'copy';
 
 export interface PlatformInstrument {
   symbol: string;
@@ -12,7 +12,7 @@ export interface PlatformCategoryDef {
   id: PlatformCategory;
   name: string;
   description: string;
-  color: 'blue' | 'yellow' | 'purple' | 'green' | 'red' | 'orange';
+  color: 'blue' | 'yellow' | 'purple' | 'green' | 'red' | 'orange' | 'teal' | 'indigo';
   icon: string;
   instruments: PlatformInstrument[];
 }
@@ -107,6 +107,8 @@ export interface Prediction {
   keyRisks: string;
   marketBias: string;
   timeHorizon: string;
+  fibLevels?: string;
+  emaAlignment?: string;
   disclaimer: string;
   aiProvider: string;
 }

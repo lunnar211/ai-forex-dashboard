@@ -111,6 +111,12 @@ export default function PredictionCard({ prediction, indicators, loading, symbol
           <Row label="Market Bias" value={prediction.marketBias} />
           <Row label="AI Provider" value={prediction.aiProvider}
             valueClass="text-blue-400" />
+          {prediction.emaAlignment && (
+            <Row label="EMA Alignment" value={prediction.emaAlignment} />
+          )}
+          {prediction.fibLevels && (
+            <Row label="Fib Levels" value={prediction.fibLevels} />
+          )}
           {indicators && (
             <>
               <Row label="RSI" value={indicators.rsi?.toFixed(2) ?? '—'}

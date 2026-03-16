@@ -36,6 +36,8 @@ function parseAIResponse(content, indicators) {
     keyRisks: parsed.keyRisks || 'Market conditions may change rapidly.',
     marketBias: parsed.marketBias || 'NEUTRAL',
     timeHorizon: parsed.timeHorizon || 'Short-term',
+    fibLevels: parsed.fibLevels || '',
+    emaAlignment: parsed.emaAlignment || '',
     disclaimer: 'For educational purposes only. Not financial advice.',
     aiProvider: 'gemini',
   };
