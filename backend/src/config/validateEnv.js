@@ -12,12 +12,15 @@ function validateEnv() {
     }
   }
 
-  // At least one AI provider key must be present
+  // At least one AI provider key is strongly recommended; without one all AI
+  // prediction endpoints will return errors, but the rest of the app (auth,
+  // forex data, admin) will still function normally.
   const aiKeys = ['GROQ_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'OPENROUTER_API_KEY'];
   const hasAiKey = aiKeys.some((k) => process.env[k]);
   if (!hasAiKey) {
-    errors.push(
-      `Missing AI provider key. At least one of the following is required: ${aiKeys.join(', ')}`
+    warnings.push(
+      `No AI provider key configured — AI prediction features will be unavailable. ` +
+      `Set at least one of: ${aiKeys.join(', ')}`
     );
   } else {
     for (const k of aiKeys) {
