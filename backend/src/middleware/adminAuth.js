@@ -25,7 +25,7 @@ async function adminAuthMiddleware(req, res, next) {
     // Always re-check from database — do not trust token payload alone
     const { rows } = await pool.query(
       'SELECT id, email, is_admin, is_blocked FROM users WHERE id = $1',
-      [decoded.id || decoded.userId]
+      [decoded.id]
     );
 
     if (!rows.length) {

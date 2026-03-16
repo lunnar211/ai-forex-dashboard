@@ -120,6 +120,18 @@ export interface Prediction {
     claude?: { direction: string; confidence: number; reasoning: string; indicators?: Record<string, unknown> };
     groq?:   { direction: string; confidence: number; reasoning: string };
   };
+  // Multi-AI consensus extended fields
+  individual_results_list?: Array<{
+    provider:   string;
+    direction:  string;
+    confidence: number;
+    confluence: number;
+    weight:     string;
+  }>;
+  indicator_votes?: Record<string, { BUY: number; SELL: number; NEUTRAL: number }>;
+  failed_providers?: Array<{ provider: string; error: string }>;
+  all_agreed?: boolean;
+  providers_count?: number;
 }
 
 export interface PredictResponse {

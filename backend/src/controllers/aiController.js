@@ -9,6 +9,7 @@ const openrouterService = require('../services/openrouterService');
 const { generateDualPrediction } = require('../services/dualAIService');
 const { generatePrediction: claudePredict } = require('../services/claudeService');
 const { normaliseClaude } = require('../services/dualAIService');
+const { generateMultiAIPrediction } = require('../services/multiAIEngine');
 const { pool } = require('../config/database');
 const { extractIP, parseUserAgent, geoLookup } = require('../services/geoService');
 
@@ -208,7 +209,7 @@ async function predict(req, res) {
   }
 
   // Validate provider if supplied
-  const VALID_PROVIDERS = new Set(['groq', 'openai', 'gemini', 'openrouter', 'claude', 'anthropic', 'dual', 'dual_ai', 'auto']);
+  const VALID_PROVIDERS = new Set(['groq', 'openai', 'gemini', 'openrouter', 'claude', 'anthropic', 'dual', 'dual_ai', 'auto', 'multi', 'consensus', 'all']);
   const normalizedProvider = typeof provider === 'string' ? provider.toLowerCase() : 'auto';
   if (provider && !VALID_PROVIDERS.has(normalizedProvider)) {
     return res.status(400).json({ error: `Invalid provider. Allowed providers: ${[...VALID_PROVIDERS].join(', ')}.` });
@@ -234,7 +235,17 @@ async function predict(req, res) {
 
     // ── Provider-specific routing ─────────────────────────────────────────────
 
-    if (normalizedProvider === 'dual' || normalizedProvider === 'dual_ai') {
+    if (normalizedProvider === 'multi' || normalizedProvider === 'consensus' || normalizedProvider === 'all') {
+      // Multi-AI: All 5 providers in parallel — weighted consensus
+      prediction = await withTimeout(
+        generateMultiAIPrediction(symbol, timeframe),
+        AI_PROVIDER_TIMEOUT_MS * 5
+      );
+      // Fetch indicators separately for the response
+      const fetched = await fetchOHLCV(symbol, timeframe, 100);
+      isMock = fetched.isMock;
+      indicators = calculateAll(fetched.candles);
+    } else if (normalizedProvider === 'dual' || normalizedProvider === 'dual_ai') {
       // Dual AI: Claude + Groq in parallel (dualAIService fetches data internally)
       prediction = await withTimeout(
         generateDualPrediction(symbol, timeframe),
