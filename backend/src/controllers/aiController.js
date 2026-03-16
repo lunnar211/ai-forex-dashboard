@@ -9,7 +9,18 @@ const openrouterService = require('../services/openrouterService');
 const { pool } = require('../config/database');
 const { extractIP, parseUserAgent, geoLookup } = require('../services/geoService');
 
-const WATCHED_PAIRS = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'XAU/USD'];
+const WATCHED_PAIRS = [
+  // Forex
+  'EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'USD/CAD', 'NZD/USD',
+  // Metals
+  'XAU/USD', 'XAG/USD',
+  // Crypto
+  'BTC/USD', 'ETH/USD', 'SOL/USD', 'XRP/USD',
+  // Stocks
+  'AAPL', 'NVDA', 'TSLA', 'MSFT',
+  // Indices & Commodities
+  'SPX', 'OIL/USD',
+];
 const RATE_LIMIT_WINDOW = 3600; // 1 hour in seconds
 const RATE_LIMIT_MAX = 20;
 const AI_PROVIDER_TIMEOUT_MS = 30000; // 30 seconds per AI provider call

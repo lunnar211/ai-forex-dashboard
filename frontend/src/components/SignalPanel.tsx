@@ -12,6 +12,18 @@ const directionStyles = {
   HOLD: 'bg-[#713f12] text-[#eab308] border-[#eab308]',
 };
 
+/** Returns the appropriate decimal precision for a given symbol's price display */
+function getPriceDecimals(symbol: string): number {
+  if (symbol === 'USD/JPY' || symbol === 'EUR/JPY' || symbol === 'GBP/JPY') return 3;
+  if (['XAU/USD', 'XAG/USD', 'XPT/USD', 'XPD/USD'].includes(symbol)) return 2;
+  if (['BTC/USD', 'ETH/USD', 'BNB/USD', 'SOL/USD', 'AVAX/USD'].includes(symbol)) return 2;
+  if (['ADA/USD', 'XRP/USD', 'DOGE/USD', 'DOT/USD', 'MATIC/USD'].includes(symbol)) return 4;
+  if (['SPX', 'DJI', 'NDX', 'FTSE', 'DAX', 'NIKKEI'].includes(symbol)) return 0;
+  if (['OIL/USD', 'NATGAS/USD'].includes(symbol)) return 2;
+  if (['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'AMZN', 'NVDA', 'META', 'NFLX', 'AMD', 'INTC'].includes(symbol)) return 2;
+  return 5; // default forex
+}
+
 export default function SignalPanel({ signal }: Props) {
   const direction = (signal.direction?.toUpperCase() ?? 'HOLD') as keyof typeof directionStyles;
   const styleKey = directionStyles[direction] ?? directionStyles.HOLD;
@@ -22,6 +34,7 @@ export default function SignalPanel({ signal }: Props) {
     'text-[#eab308]';
 
   const confPct = Math.min(100, Math.max(0, signal.confidence));
+  const decimals = getPriceDecimals(signal.symbol);
 
   return (
     <div className="bg-[#1e293b] rounded-xl border border-[#334155] p-5 flex flex-col gap-4 hover:border-[#475569] transition-colors">
@@ -43,7 +56,7 @@ export default function SignalPanel({ signal }: Props) {
       {/* Price */}
       <div className="text-center">
         <p className="text-2xl font-mono font-bold text-white">
-          {signal.currentPrice?.toFixed(5)}
+          {signal.currentPrice != null ? signal.currentPrice.toFixed(decimals) : '—'}
         </p>
         <p className="text-xs text-[#94a3b8]">Current Price</p>
       </div>
