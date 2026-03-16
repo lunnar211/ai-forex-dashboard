@@ -33,9 +33,16 @@ export const config = {
 export default function handler(req: NextApiRequest, res: NextApiResponse): void {
   // Read from the runtime Node.js environment — works at request time regardless
   // of whether the variable was present during `npm run build`.
-  const backendBase = (
-    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000'
-  ).replace(/\/+$/, '');
+  // Normalise the value: strip trailing slashes and prepend https:// when no
+  // scheme is present (handles cases where the env var is set to just the
+  // hostname, e.g. "ai-forex-backend.onrender.com").
+  let rawBackendUrl = (process.env.NEXT_PUBLIC_API_URL || '').replace(/\/+$/, '');
+  if (rawBackendUrl && !/^https?:\/\//i.test(rawBackendUrl)) {
+    // Use http:// for local addresses, https:// for everything else
+    const isLocal = /^(localhost|127\.\d+\.\d+\.\d+|0\.0\.0\.0)(:\d+)?$/.test(rawBackendUrl);
+    rawBackendUrl = `${isLocal ? 'http' : 'https'}://${rawBackendUrl}`;
+  }
+  const backendBase = rawBackendUrl || 'http://localhost:5000';
 
   // req.url is the original browser URL, e.g. '/api/auth/login' or
   // '/api/forex/prices?symbol=EURUSD&interval=1h'. Strip the '/api' prefix to
