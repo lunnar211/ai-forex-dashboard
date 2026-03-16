@@ -76,15 +76,13 @@ services:
     name: ai-forex-frontend
     runtime: node
     rootDir: ./frontend
-    # NEXT_PUBLIC_API_URL must be set in the Render dashboard BEFORE the first
-    # deploy. Because Next.js bakes NEXT_PUBLIC_* values into the static bundle
-    # at `npm run build` time, it must be present during the build — not only
-    # at process startup.  Using the Node.js runtime (instead of Docker)
-    # ensures that Render injects all dashboard env vars before the build runs.
+    # NEXT_PUBLIC_API_URL is read at server startup by next.config.js rewrites().
+    # Set it in the Render dashboard for the FRONTEND service to your backend URL.
+    # Do NOT include a trailing slash (e.g. https://ai-forex-backend.onrender.com NOT https://ai-forex-backend.onrender.com/).
     buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
       - key: NEXT_PUBLIC_API_URL
-        sync: false           # REQUIRED: set to your backend URL, e.g. https://ai-forex-backend.onrender.com
+        sync: false           # REQUIRED: set to your backend URL on the FRONTEND service, e.g. https://ai-forex-backend.onrender.com
