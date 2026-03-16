@@ -8,6 +8,7 @@ const BASE_URL = 'https://api.twelvedata.com';
 
 function generateMockOHLCV(symbol, count = 100) {
   const priceMap = {
+    // Forex
     'EUR/USD': 1.0850,
     'GBP/USD': 1.2650,
     'USD/JPY': 149.50,
@@ -16,6 +17,47 @@ function generateMockOHLCV(symbol, count = 100) {
     'USD/CAD': 1.3580,
     'USD/CHF': 0.8950,
     'NZD/USD': 0.6080,
+    'EUR/GBP': 0.8560,
+    'EUR/JPY': 162.50,
+    'GBP/JPY': 189.80,
+    'XAG/USD': 23.50,
+    // Additional Metals
+    'XPT/USD': 995.0,
+    'XPD/USD': 1120.0,
+    // Crypto
+    'BTC/USD': 67000.0,
+    'ETH/USD': 3500.0,
+    'BNB/USD': 580.0,
+    'SOL/USD': 160.0,
+    'ADA/USD': 0.58,
+    'XRP/USD': 0.62,
+    'DOGE/USD': 0.165,
+    'DOT/USD': 8.5,
+    'AVAX/USD': 38.0,
+    'MATIC/USD': 0.85,
+    // Stocks
+    'AAPL': 185.0,
+    'GOOGL': 175.0,
+    'MSFT': 415.0,
+    'TSLA': 175.0,
+    'AMZN': 195.0,
+    'NVDA': 880.0,
+    'META': 520.0,
+    'NFLX': 625.0,
+    'AMD': 170.0,
+    'INTC': 42.0,
+    // Indices
+    'SPX': 5200.0,
+    'DJI': 39000.0,
+    'NDX': 18200.0,
+    'FTSE': 8100.0,
+    'DAX': 18500.0,
+    'NIKKEI': 39500.0,
+    // Commodities
+    'OIL/USD': 82.0,
+    'NATGAS/USD': 2.85,
+    'WHEAT/USD': 570.0,
+    'CORN/USD': 430.0,
   };
 
   const basePrice = priceMap[symbol] || 1.1000;
@@ -111,6 +153,7 @@ async function fetchLivePrice(symbol) {
   const apiKey = process.env.TWELVE_DATA_API_KEY;
 
   const mockPrices = {
+    // Forex
     'EUR/USD': 1.0850,
     'GBP/USD': 1.2650,
     'USD/JPY': 149.50,
@@ -119,6 +162,47 @@ async function fetchLivePrice(symbol) {
     'USD/CAD': 1.3580,
     'USD/CHF': 0.8950,
     'NZD/USD': 0.6080,
+    'EUR/GBP': 0.8560,
+    'EUR/JPY': 162.50,
+    'GBP/JPY': 189.80,
+    'XAG/USD': 23.50,
+    // Additional Metals
+    'XPT/USD': 995.0,
+    'XPD/USD': 1120.0,
+    // Crypto
+    'BTC/USD': 67000.0,
+    'ETH/USD': 3500.0,
+    'BNB/USD': 580.0,
+    'SOL/USD': 160.0,
+    'ADA/USD': 0.58,
+    'XRP/USD': 0.62,
+    'DOGE/USD': 0.165,
+    'DOT/USD': 8.5,
+    'AVAX/USD': 38.0,
+    'MATIC/USD': 0.85,
+    // Stocks
+    'AAPL': 185.0,
+    'GOOGL': 175.0,
+    'MSFT': 415.0,
+    'TSLA': 175.0,
+    'AMZN': 195.0,
+    'NVDA': 880.0,
+    'META': 520.0,
+    'NFLX': 625.0,
+    'AMD': 170.0,
+    'INTC': 42.0,
+    // Indices
+    'SPX': 5200.0,
+    'DJI': 39000.0,
+    'NDX': 18200.0,
+    'FTSE': 8100.0,
+    'DAX': 18500.0,
+    'NIKKEI': 39500.0,
+    // Commodities
+    'OIL/USD': 82.0,
+    'NATGAS/USD': 2.85,
+    'WHEAT/USD': 570.0,
+    'CORN/USD': 430.0,
   };
 
   if (!apiKey) {

@@ -296,11 +296,22 @@ const PLATFORM_TAB_COLORS: Record<string, { border: string; text: string; badge:
   red:    { border: 'border-red-500/40',    text: 'text-red-400',    badge: 'bg-red-500/20 text-red-300',    btn: 'bg-red-600 hover:bg-red-500' },
 };
 
+// Map each trading platform group to a market category and default instrument
+const PLATFORM_GROUP_MARKET_MAP: Record<string, { categoryId: string; defaultSymbol: string }> = {
+  'Forex / Multi-Asset Platforms': { categoryId: 'forex', defaultSymbol: 'EUR/USD' },
+  'Stock Trading Apps': { categoryId: 'stocks', defaultSymbol: 'AAPL' },
+  'Crypto Trading Platforms': { categoryId: 'crypto', defaultSymbol: 'BTC/USD' },
+  'Copy / Social Trading': { categoryId: 'copy', defaultSymbol: 'EUR/USD' },
+  'Precious Metals Brokers': { categoryId: 'metals', defaultSymbol: 'XAU/USD' },
+  'Indices & Commodities': { categoryId: 'indices', defaultSymbol: 'SPX' },
+};
+
 export default function Platforms() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
   const [mounted, setMounted] = useState(false);
   const predictionRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
 
   const [activeTab, setActiveTab] = useState<'markets' | 'platforms'>('markets');
   const [selectedCategory, setSelectedCategory] = useState<PlatformCategoryDef>(PLATFORM_CATEGORIES[0]);
@@ -416,6 +427,19 @@ export default function Platforms() {
     if (selectedSymbol) {
       activity.track({ action: 'timeframe_change', page: 'platforms', symbol: selectedSymbol, timeframe: tf });
     }
+  }
+
+  function handleViewPlatformChart(platformGroupName: string) {
+    const mapping = PLATFORM_GROUP_MARKET_MAP[platformGroupName];
+    if (!mapping) return;
+    const category = PLATFORM_CATEGORIES.find((c) => c.id === mapping.categoryId);
+    if (!category) return;
+    setActiveTab('markets');
+    setSelectedCategory(category);
+    handleSelectInstrument(mapping.defaultSymbol);
+    setTimeout(() => {
+      chartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 150);
   }
 
   if (!mounted || !isAuthenticated) return null;
@@ -563,7 +587,7 @@ export default function Platforms() {
                     </div>
                   </div>
 
-                  <div className="bg-[#1e293b] border border-[#334155] rounded-2xl overflow-hidden">
+                  <div ref={chartRef} className="bg-[#1e293b] border border-[#334155] rounded-2xl overflow-hidden">
                     <div className="px-4 py-3 border-b border-[#334155] flex items-center justify-between">
                       <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider">Live Chart</p>
                       {loadingChart && (
@@ -674,21 +698,33 @@ export default function Platforms() {
                             </span>
                           </div>
                           <p className="text-xs text-[#64748b] leading-relaxed flex-1">{platform.description}</p>
-                          <a
-                            href={platform.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={clsx(
-                              'mt-auto flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white transition-all',
-                              c.btn
-                            )}
-                          >
-                            Open Platform
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                            </svg>
-                          </a>
+                          <div className="mt-auto flex gap-2">
+                            <button
+                              onClick={() => handleViewPlatformChart(group.category)}
+                              className={clsx(
+                                'flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-white transition-all',
+                                c.btn
+                              )}
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                              </svg>
+                              View Live Chart
+                            </button>
+                            <a
+                              href={platform.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Visit official website"
+                              className="flex items-center justify-center px-2.5 py-2 rounded-lg text-[#64748b] hover:text-white border border-[#334155] hover:border-[#475569] transition-all"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                              </svg>
+                            </a>
+                          </div>
                         </div>
                       ))}
                     </div>
