@@ -213,6 +213,81 @@ export default function PredictionCard({ prediction, indicators, loading, symbol
           </div>
         )}
 
+        {/* Dual AI agreement section */}
+        {prediction.aiProvider === 'dual_ai' && (
+          <div className={clsx(
+            'rounded-lg p-4 border-l-2',
+            prediction.agreement === true
+              ? 'bg-[#052e16]/60 border-[#22c55e]'
+              : prediction.agreement === false
+              ? 'bg-[#451a03]/60 border-[#f97316]'
+              : 'bg-[#0f172a] border-[#64748b]'
+          )}>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider">⚡ Dual AI Consensus</p>
+              {prediction.agreement !== null && prediction.agreement !== undefined && (
+                <span className={clsx(
+                  'text-xs font-bold px-2 py-0.5 rounded',
+                  prediction.agreement
+                    ? 'bg-[#22c55e]/20 text-[#22c55e]'
+                    : 'bg-[#f97316]/20 text-[#f97316]'
+                )}>
+                  {prediction.agreement ? '✓ Agreement' : '⚠ Conflicting'}
+                </span>
+              )}
+            </div>
+            {prediction.individual_results && (
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                {prediction.individual_results.claude && (
+                  <div className="bg-[#0f172a] rounded-lg p-3">
+                    <p className="text-[10px] text-[#64748b] uppercase tracking-wider mb-1">🧠 Claude</p>
+                    <p className={clsx('text-sm font-bold',
+                      prediction.individual_results.claude.direction === 'BUY' ? 'text-[#22c55e]' :
+                      prediction.individual_results.claude.direction === 'SELL' ? 'text-[#ef4444]' : 'text-[#eab308]'
+                    )}>
+                      {prediction.individual_results.claude.direction}
+                    </p>
+                    <p className="text-xs text-[#94a3b8] mt-0.5">
+                      {prediction.individual_results.claude.confidence}% confidence
+                    </p>
+                  </div>
+                )}
+                {prediction.individual_results.groq && (
+                  <div className="bg-[#0f172a] rounded-lg p-3">
+                    <p className="text-[10px] text-[#64748b] uppercase tracking-wider mb-1">🚀 Groq</p>
+                    <p className={clsx('text-sm font-bold',
+                      prediction.individual_results.groq.direction === 'BUY' ? 'text-[#22c55e]' :
+                      prediction.individual_results.groq.direction === 'SELL' ? 'text-[#ef4444]' : 'text-[#eab308]'
+                    )}>
+                      {prediction.individual_results.groq.direction}
+                    </p>
+                    <p className="text-xs text-[#94a3b8] mt-0.5">
+                      {prediction.individual_results.groq.confidence}% confidence
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+            {prediction.confluence_score !== undefined && (
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-xs text-[#94a3b8]">Confluence:</span>
+                <div className="flex-1 bg-[#1e293b] rounded-full h-1.5">
+                  <div
+                    className={clsx('h-1.5 rounded-full', prediction.confluence_score > 60 ? 'bg-[#22c55e]' : prediction.confluence_score < 40 ? 'bg-[#ef4444]' : 'bg-[#eab308]')}
+                    style={{ width: `${prediction.confluence_score}%` }}
+                  />
+                </div>
+                <span className="text-xs text-white font-bold">{prediction.confluence_score}%</span>
+              </div>
+            )}
+            {prediction.kelly_position_size && prediction.kelly_position_size !== 'N/A' && (
+              <p className="text-xs text-[#94a3b8] mt-2">
+                Kelly Position Size: <span className="text-white font-semibold">{prediction.kelly_position_size}</span>
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Reasoning */}
         <div className="bg-[#0f172a] rounded-lg p-4">
           <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider mb-2">AI Reasoning</p>
