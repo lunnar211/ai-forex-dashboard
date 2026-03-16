@@ -232,14 +232,11 @@ async function initSchema() {
 async function seedAdmin(client) {
   const adminEmail = process.env.ADMIN_EMAIL;
   const adminPassword = process.env.ADMIN_PASSWORD;
-  const adminUrl = process.env.ADMIN_URL;
 
   if (!adminEmail || !adminPassword) {
     console.warn('[DB] ADMIN_EMAIL or ADMIN_PASSWORD not set — admin user not seeded.');
     return;
   }
-
-  console.log('[DB] Admin URL:', adminUrl || 'not set');
 
   // Always hash and upsert — create or force-sync on every startup
   const hashed = await bcrypt.hash(adminPassword, 12);
