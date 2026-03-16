@@ -81,7 +81,7 @@ services:
     # at `npm run build` time, it must be present during the build — not only
     # at process startup.  Using the Node.js runtime (instead of Docker)
     # ensures that Render injects all dashboard env vars before the build runs.
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
