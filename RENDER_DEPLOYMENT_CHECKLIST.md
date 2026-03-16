@@ -13,8 +13,9 @@ This checklist ensures your AI Forex Dashboard is properly configured on Render.
 
 ### 1. Deploy via Blueprint (Recommended – one click)
 
-The `render.yaml` in the repo uses Docker runtime and auto-provisions PostgreSQL,
-Redis, backend, and frontend. No manual service setup required.
+The `render.yaml` in the repo auto-provisions PostgreSQL, Redis, backend, and
+frontend services. **Service URLs are wired automatically** – you only need to
+supply your secrets when prompted.
 
 - [ ] Go to https://dashboard.render.com/blueprints
 - [ ] Click **New Blueprint Instance**
@@ -29,48 +30,74 @@ Redis, backend, and frontend. No manual service setup required.
 
 After blueprint deployment, verify these services exist:
 
-- [ ] **ai-forex-backend** (Web Service – Docker)
-- [ ] **ai-forex-frontend** (Web Service – Docker)
+- [ ] **ai-forex-backend** (Web Service)
+- [ ] **ai-forex-frontend** (Web Service)
 - [ ] **forex-redis** (Redis)
 - [ ] **forex-db** (PostgreSQL Database)
 
 #### Auto-Wired Variables (No Action Required)
 
-The Blueprint links these automatically – you do **not** need to set them manually:
+The Blueprint links **all** of these automatically – you do **not** need to copy or
+paste any URLs:
 
-| Variable | Source |
-|---|---|
-| `DATABASE_URL` | Auto-linked to **forex-db** |
-| `REDIS_URL` | Auto-linked to **forex-redis** |
-| `JWT_SECRET` | Auto-generated secure secret |
-
-#### Manually-Set Variables (Required After Deployment)
-
-These must be entered manually in the Render dashboard:
-
-| Variable | Service | Description |
+| Variable | Set on service | Auto-source |
 |---|---|---|
-| `CORS_ORIGIN` | **ai-forex-backend** | Set to your frontend URL, e.g. `https://ai-forex-frontend.onrender.com` |
-| `NEXT_PUBLIC_API_URL` | **ai-forex-frontend** | Set to your backend URL, e.g. `https://ai-forex-backend.onrender.com` |
+| `DATABASE_URL` | **ai-forex-backend** | Auto-linked to **forex-db** |
+| `REDIS_URL` | **ai-forex-backend** | Auto-linked to **forex-redis** |
+| `JWT_SECRET` | **ai-forex-backend** | Auto-generated secure secret |
+| `CORS_ORIGIN` | **ai-forex-backend** | Auto-set to the **ai-forex-frontend** URL |
+| `NEXT_PUBLIC_API_URL` | **ai-forex-frontend** | Auto-set to the **ai-forex-backend** URL |
 
-## Post-Deployment Configuration
+#### Where your service URLs come from
 
-### 3. Configure Backend Environment Variables
+Render assigns each web service a URL of the form:
 
-Go to **ai-forex-backend** service → **Environment**
+```
+https://<service-name>.onrender.com
+```
+
+With the default service names in `render.yaml` the URLs will be:
+
+| Service | URL |
+|---|---|
+| **ai-forex-backend** | `https://ai-forex-backend.onrender.com` |
+| **ai-forex-frontend** | `https://ai-forex-frontend.onrender.com` |
+
+You can verify the actual URL for any service by:
+1. Opening https://dashboard.render.com
+2. Clicking the service name
+3. The URL is shown at the top of the service page (copy it with the copy icon)
+
+#### What each URL is used for
+
+| Variable | Set on service | Value | Why |
+|---|---|---|---|
+| `CORS_ORIGIN` | **ai-forex-backend** | Frontend URL (`https://ai-forex-frontend.onrender.com`) | Tells the backend which origin is allowed to call its API |
+| `NEXT_PUBLIC_API_URL` | **ai-forex-frontend** | Backend URL (`https://ai-forex-backend.onrender.com`) | Tells the frontend where to send API requests |
+
+> ⚠️ **Important – do NOT swap these.** `CORS_ORIGIN` lives on the *backend* and
+> holds the *frontend* URL. `NEXT_PUBLIC_API_URL` lives on the *frontend* and holds
+> the *backend* URL.
+
+#### How to check or update a variable in the Render dashboard (if needed)
+
+1. Open https://dashboard.render.com and select the service (backend or frontend).
+2. Click the **Environment** tab in the left sidebar.
+3. All current environment variables are listed here.
+4. To change a value: click the pencil icon next to the variable, update the value,
+   then click **Save Changes**.
+5. Click **Manual Deploy → Deploy latest commit** to apply the change.
 
 > **Security note:** Never put real API keys or passwords in the GitHub repository.
-> Always set secrets directly in the Render dashboard as described below.
+> Always set secrets directly in the Render dashboard.
 > The `.env.example` files in the repo show only placeholder values – they are
 > templates to guide you, not files that should contain real credentials.
 
-#### How to add a secret in the Render dashboard
+## Post-Deployment Configuration
 
-1. Open https://dashboard.render.com and select the **ai-forex-backend** service.
-2. Click the **Environment** tab in the left sidebar.
-3. Click **Add Environment Variable**.
-4. Enter the **Key** (e.g. `ADMIN_EMAIL`) and the **Value** (e.g. `you@example.com`).
-5. Click **Save Changes**, then **Manual Deploy → Deploy latest commit** to apply.
+### 3. Configure Backend API Keys
+
+Go to **ai-forex-backend** service → **Environment** tab.
 
 #### Required Variables (Prompted During Blueprint Setup)
 
