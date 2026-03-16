@@ -8,8 +8,31 @@ import Sidebar from '../components/Sidebar';
 import TopNav from '../components/TopNav';
 import type { HistoryRecord } from '../types';
 
-const SYMBOLS = ['All', 'EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'XAU/USD'];
+const SYMBOL_GROUPS: { label: string; symbols: string[] }[] = [
+  { label: 'Forex', symbols: ['EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'USD/CAD', 'NZD/USD'] },
+  { label: 'Metals', symbols: ['XAU/USD', 'XAG/USD'] },
+  { label: 'Crypto', symbols: ['BTC/USD', 'ETH/USD', 'SOL/USD', 'XRP/USD'] },
+  { label: 'Stocks', symbols: ['AAPL', 'NVDA', 'TSLA', 'MSFT'] },
+  { label: 'Index', symbols: ['SPX', 'NDX'] },
+];
 const LIMIT = 20;
+
+/** Returns the appropriate decimal precision for price display */
+function getPriceDecimals(symbol: string): number {
+  if (symbol === 'USD/JPY' || symbol === 'EUR/JPY' || symbol === 'GBP/JPY') return 3;
+  if (['XAU/USD', 'XAG/USD', 'XPT/USD', 'XPD/USD'].includes(symbol)) return 2;
+  if (['BTC/USD', 'ETH/USD', 'BNB/USD', 'SOL/USD', 'AVAX/USD'].includes(symbol)) return 2;
+  if (['ADA/USD', 'XRP/USD', 'DOGE/USD', 'DOT/USD', 'MATIC/USD'].includes(symbol)) return 4;
+  if (['SPX', 'DJI', 'NDX', 'FTSE', 'DAX', 'NIKKEI'].includes(symbol)) return 0;
+  if (['OIL/USD', 'NATGAS/USD'].includes(symbol)) return 2;
+  if (['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'AMZN', 'NVDA', 'META', 'NFLX', 'AMD', 'INTC'].includes(symbol)) return 2;
+  return 5;
+}
+
+function fmtPrice(price: number | null | undefined, symbol: string): string {
+  if (price == null) return '—';
+  return price.toFixed(getPriceDecimals(symbol));
+}
 
 const directionStyles: Record<string, string> = {
   BUY: 'text-[#22c55e] bg-[#166534]',
@@ -86,24 +109,45 @@ export default function History() {
           </div>
 
           {/* Filters */}
-          <div className="flex flex-wrap gap-2 mb-6">
-            {SYMBOLS.map((s) => (
+          <div className="space-y-2 mb-6">
+            {/* All */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] font-semibold text-[#475569] uppercase tracking-widest w-10 flex-shrink-0" />
               <button
-                key={s}
-                onClick={() => setSymbolFilter(s)}
+                onClick={() => setSymbolFilter('All')}
                 className={clsx(
                   'px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border',
-                  symbolFilter === s
+                  symbolFilter === 'All'
                     ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-[#1e293b] text-[#94a3b8] border-[#334155] hover:text-white'
                 )}
               >
-                {s}
+                All
               </button>
+            </div>
+            {/* Per category */}
+            {SYMBOL_GROUPS.map((group) => (
+              <div key={group.label} className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-semibold text-[#475569] uppercase tracking-widest w-10 flex-shrink-0">
+                  {group.label}
+                </span>
+                {group.symbols.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setSymbolFilter(s)}
+                    className={clsx(
+                      'px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border',
+                      symbolFilter === s
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-[#1e293b] text-[#94a3b8] border-[#334155] hover:text-white'
+                    )}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
             ))}
-            <span className="ml-auto text-xs text-[#475569] self-center">
-              {count} total records
-            </span>
+            <div className="text-xs text-[#475569] pt-1">{count} total records</div>
           </div>
 
           {error && (
@@ -160,13 +204,13 @@ export default function History() {
                           </td>
                           <td className="px-4 py-3 font-mono text-white">{r.confidence}%</td>
                           <td className="px-4 py-3 font-mono text-blue-400 whitespace-nowrap">
-                            {r.entry_price?.toFixed(5)}
+                            {fmtPrice(r.entry_price, r.symbol)}
                           </td>
                           <td className="px-4 py-3 font-mono text-[#ef4444] whitespace-nowrap">
-                            {r.stop_loss?.toFixed(5)}
+                            {fmtPrice(r.stop_loss, r.symbol)}
                           </td>
                           <td className="px-4 py-3 font-mono text-[#22c55e] whitespace-nowrap">
-                            {r.take_profit?.toFixed(5)}
+                            {fmtPrice(r.take_profit, r.symbol)}
                           </td>
                           <td className="px-4 py-3 text-[#94a3b8] whitespace-nowrap text-xs">{r.ai_provider}</td>
                         </tr>

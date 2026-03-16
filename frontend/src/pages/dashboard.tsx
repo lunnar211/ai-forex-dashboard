@@ -9,11 +9,19 @@ import Sidebar from '../components/Sidebar';
 import TopNav from '../components/TopNav';
 import PredictionCard from '../components/PredictionCard';
 import IndicatorGauges from '../components/IndicatorGauges';
-import type { Candle, Prediction, Indicators, ForexSymbol, Timeframe, PredictResponse } from '../types';
+import type { Timeframe, PredictResponse, Indicators, Prediction, Candle } from '../types';
 
 const ChartPanel = dynamic(() => import('../components/ChartPanel'), { ssr: false });
 
-const SYMBOLS: ForexSymbol[] = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'XAU/USD'];
+const SYMBOL_GROUPS: { label: string; symbols: string[] }[] = [
+  { label: 'Forex', symbols: ['EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'USD/CAD', 'NZD/USD'] },
+  { label: 'Metals', symbols: ['XAU/USD', 'XAG/USD'] },
+  { label: 'Crypto', symbols: ['BTC/USD', 'ETH/USD', 'SOL/USD', 'XRP/USD'] },
+  { label: 'Stocks', symbols: ['AAPL', 'NVDA', 'TSLA', 'MSFT'] },
+  { label: 'Index', symbols: ['SPX', 'NDX'] },
+  { label: 'Oil', symbols: ['OIL/USD'] },
+];
+
 const TIMEFRAMES: { label: string; value: Timeframe }[] = [
   { label: '15m', value: '15min' },
   { label: '1H', value: '1h' },
@@ -21,13 +29,25 @@ const TIMEFRAMES: { label: string; value: Timeframe }[] = [
   { label: '1D', value: '1day' },
 ];
 
+/** Returns the appropriate decimal precision for a given symbol's price display */
+function getPriceDecimals(symbol: string): number {
+  if (symbol === 'USD/JPY' || symbol === 'EUR/JPY' || symbol === 'GBP/JPY') return 3;
+  if (['XAU/USD', 'XAG/USD', 'XPT/USD', 'XPD/USD'].includes(symbol)) return 2;
+  if (['BTC/USD', 'ETH/USD', 'BNB/USD', 'SOL/USD', 'AVAX/USD'].includes(symbol)) return 2;
+  if (['ADA/USD', 'XRP/USD', 'DOGE/USD', 'DOT/USD', 'MATIC/USD'].includes(symbol)) return 4;
+  if (['SPX', 'DJI', 'NDX', 'FTSE', 'DAX', 'NIKKEI'].includes(symbol)) return 0;
+  if (['OIL/USD', 'NATGAS/USD'].includes(symbol)) return 2;
+  if (['AAPL', 'GOOGL', 'MSFT', 'TSLA', 'AMZN', 'NVDA', 'META', 'NFLX', 'AMD', 'INTC'].includes(symbol)) return 2;
+  return 5; // default forex
+}
+
 export default function Dashboard() {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
   const predictionRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState(false);
 
-  const [symbol, setSymbol] = useState<ForexSymbol>('EUR/USD');
+  const [symbol, setSymbol] = useState<string>('EUR/USD');
   const [timeframe, setTimeframe] = useState<Timeframe>('1h');
   const [candles, setCandles] = useState<Candle[]>([]);
   const [livePrice, setLivePrice] = useState<number | null>(null);
@@ -107,7 +127,7 @@ export default function Dashboard() {
 
   if (!mounted || !isAuthenticated) return null;
 
-  const decimals = symbol === 'USD/JPY' ? 3 : symbol === 'XAU/USD' ? 2 : 5;
+  const decimals = getPriceDecimals(symbol);
 
   return (
     <div className="flex min-h-screen bg-[#0f172a]">
@@ -116,40 +136,47 @@ export default function Dashboard() {
         <TopNav />
         <main className="flex-1 p-4 md:p-6 space-y-5">
 
-          {/* Symbol + Live Price */}
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="flex flex-wrap gap-2">
-              {SYMBOLS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setSymbol(s)}
-                  className={clsx(
-                    'px-4 py-2 rounded-lg text-sm font-semibold transition-colors border',
-                    symbol === s
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-[#1e293b] text-[#94a3b8] border-[#334155] hover:text-white hover:border-[#475569]'
-                  )}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-            <div className="flex items-center gap-3">
-              {livePrice !== null && (
-                <div className="flex items-center gap-2 px-4 py-2 bg-[#1e293b] border border-[#334155] rounded-lg">
-                  <span className="w-2 h-2 rounded-full bg-[#22c55e] animate-pulse" />
-                  <span className="text-xs text-[#94a3b8]">LIVE</span>
-                  <span className="font-mono font-bold text-white text-sm">
-                    {livePrice.toFixed(decimals)}
-                  </span>
-                </div>
-              )}
-              {isMockData && (
-                <span className="px-3 py-1.5 bg-[#713f12] text-[#fbbf24] text-xs font-semibold rounded-lg border border-[#eab308]">
-                  ⚠ MOCK DATA
+          {/* Symbol picker — grouped by asset class */}
+          <div className="space-y-2">
+            {SYMBOL_GROUPS.map((group) => (
+              <div key={group.label} className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-semibold text-[#475569] uppercase tracking-widest w-10 flex-shrink-0">
+                  {group.label}
                 </span>
-              )}
-            </div>
+                {group.symbols.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setSymbol(s)}
+                    className={clsx(
+                      'px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border',
+                      symbol === s
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-[#1e293b] text-[#94a3b8] border-[#334155] hover:text-white hover:border-[#475569]'
+                    )}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          {/* Live price + mock badge */}
+          <div className="flex items-center gap-3 flex-wrap">
+            {livePrice !== null && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-[#1e293b] border border-[#334155] rounded-lg">
+                <span className="w-2 h-2 rounded-full bg-[#22c55e] animate-pulse" />
+                <span className="text-xs text-[#94a3b8]">LIVE</span>
+                <span className="font-mono font-bold text-white text-sm">
+                  {livePrice.toFixed(decimals)}
+                </span>
+              </div>
+            )}
+            {isMockData && (
+              <span className="px-3 py-1.5 bg-[#713f12] text-[#fbbf24] text-xs font-semibold rounded-lg border border-[#eab308]">
+                ⚠ MOCK DATA
+              </span>
+            )}
           </div>
 
           {/* Timeframe selector */}

@@ -9,16 +9,39 @@ const openrouterService = require('../services/openrouterService');
 const { pool } = require('../config/database');
 const { extractIP, parseUserAgent, geoLookup } = require('../services/geoService');
 
-const WATCHED_PAIRS = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'XAU/USD'];
+const WATCHED_PAIRS = [
+  // Forex
+  'EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'USD/CAD', 'NZD/USD',
+  // Metals
+  'XAU/USD', 'XAG/USD',
+  // Crypto
+  'BTC/USD', 'ETH/USD', 'SOL/USD', 'XRP/USD',
+  // Stocks
+  'AAPL', 'NVDA', 'TSLA', 'MSFT',
+  // Indices & Commodities
+  'SPX', 'OIL/USD',
+];
 const RATE_LIMIT_WINDOW = 3600; // 1 hour in seconds
 const RATE_LIMIT_MAX = 20;
 const AI_PROVIDER_TIMEOUT_MS = 30000; // 30 seconds per AI provider call
 
 // Allowed symbols and timeframes for predict endpoint
 const ALLOWED_SYMBOLS = new Set([
+  // Forex
   'EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'XAU/USD',
   'USD/CAD', 'USD/CHF', 'NZD/USD', 'EUR/GBP', 'EUR/JPY',
   'GBP/JPY', 'XAG/USD',
+  // Additional Metals
+  'XPT/USD', 'XPD/USD',
+  // Crypto
+  'BTC/USD', 'ETH/USD', 'BNB/USD', 'SOL/USD', 'ADA/USD',
+  'XRP/USD', 'DOGE/USD', 'DOT/USD', 'AVAX/USD', 'MATIC/USD',
+  // Stocks
+  'AAPL', 'GOOGL', 'MSFT', 'TSLA', 'AMZN', 'NVDA', 'META', 'NFLX', 'AMD', 'INTC',
+  // Indices
+  'SPX', 'DJI', 'NDX', 'FTSE', 'DAX', 'NIKKEI',
+  // Commodities
+  'OIL/USD', 'NATGAS/USD', 'WHEAT/USD', 'CORN/USD',
 ]);
 const ALLOWED_TIMEFRAMES = new Set(['15min', '1h', '4h', '1day']);
 
@@ -395,43 +418,8 @@ async function getSignals(req, res) {
   }
 }
 
-// POST /ai/analyze-image
-async function analyzeImage(req, res) {
-  if (!req.file) {
-    return res.status(400).json({ error: 'No image file provided.' });
-  }
-
-  const userId = req.user.id;
-
-  // Check file type
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
-  if (!allowedTypes.includes(req.file.mimetype)) {
-    return res.status(400).json({ error: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.' });
-  }
-
-  // Validate file size before base64 encoding to avoid Gemini payload limits
-  if (req.file.size > MAX_IMAGE_BYTES_FOR_GEMINI) {
-    return res.status(413).json({ error: 'Image file is too large. Maximum allowed size is 7.5 MB.' });
-  }
-
-  const { GoogleGenerativeAI } = require('@google/generative-ai');
-
-  if (!process.env.GEMINI_API_KEY) {
-    return res.status(503).json({ error: 'Image analysis requires a Gemini API key. Please configure GEMINI_API_KEY.' });
-  }
-
-  try {
-    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-
-    const imageData = {
-      inlineData: {
-        data: req.file.buffer.toString('base64'),
-        mimeType: req.file.mimetype,
-      },
-    };
-
-    const prompt = `You are a professional forex/trading chart analyst. Analyze this trading chart or signal screenshot and provide a structured JSON response with the following fields:
+// Image analysis prompt shared across providers
+const IMAGE_ANALYSIS_PROMPT = `You are a professional forex/trading chart analyst. Analyze this trading chart or signal screenshot and provide a structured JSON response with the following fields:
 {
   "symbol": "detected currency pair or asset (e.g. EUR/USD) or 'Unknown'",
   "timeframe": "detected timeframe (e.g. 1H, 4H, 1D) or 'Unknown'",
@@ -452,26 +440,122 @@ async function analyzeImage(req, res) {
 
 Respond ONLY with valid JSON. No markdown, no extra text.`;
 
-    const result = await model.generateContent([prompt, imageData]);
-    const text = result.response.text();
+function parseImageAnalysisJson(text) {
+  const cleaned = text.replace(/```json|```/g, '').trim();
+  const match = cleaned.match(/\{[\s\S]*\}/);
+  return JSON.parse(match ? match[0] : cleaned);
+}
+
+async function analyzeImageWithGemini(imageBase64, mimeType) {
+  const { GoogleGenerativeAI } = require('@google/generative-ai');
+  if (!process.env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const imageData = { inlineData: { data: imageBase64, mimeType } };
+  const result = await model.generateContent([IMAGE_ANALYSIS_PROMPT, imageData]);
+  const text = result.response.text();
+  return { text, provider: 'gemini' };
+}
+
+async function analyzeImageWithOpenAI(imageBase64, mimeType) {
+  const OpenAI = require('openai');
+  if (!process.env.OPENAI_API_KEY) throw new Error('OPENAI_API_KEY not configured');
+
+  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const response = await client.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: IMAGE_ANALYSIS_PROMPT },
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:${mimeType};base64,${imageBase64}`,
+              detail: 'high',
+            },
+          },
+        ],
+      },
+    ],
+    max_tokens: 1024,
+  });
+  const text = response.choices[0]?.message?.content || '';
+  return { text, provider: 'openai' };
+}
+
+// POST /ai/analyze-image
+async function analyzeImage(req, res) {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No image file provided.' });
+  }
+
+  const userId = req.user.id;
+
+  // Check file type
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+  if (!allowedTypes.includes(req.file.mimetype)) {
+    return res.status(400).json({ error: 'Invalid file type. Only JPEG, PNG, GIF, and WebP images are allowed.' });
+  }
+
+  // Validate file size before base64 encoding to avoid payload limits
+  if (req.file.size > MAX_IMAGE_BYTES_FOR_GEMINI) {
+    return res.status(413).json({ error: 'Image file is too large. Maximum allowed size is 7.5 MB.' });
+  }
+
+  if (!process.env.GEMINI_API_KEY && !process.env.OPENAI_API_KEY) {
+    return res.status(503).json({ error: 'Image analysis requires an AI API key. Please configure GEMINI_API_KEY or OPENAI_API_KEY.' });
+  }
+
+  try {
+    const imageBase64 = req.file.buffer.toString('base64');
+    const mimeType = req.file.mimetype;
+
+    // Try AI providers in order: Gemini → OpenAI Vision
+    let aiResult = null;
+    const analysisErrors = [];
+
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        aiResult = await analyzeImageWithGemini(imageBase64, mimeType);
+      } catch (err) {
+        analysisErrors.push(`gemini: ${err.message}`);
+        console.warn('[AIController] analyzeImage Gemini failed:', err.message);
+      }
+    }
+
+    if (!aiResult && process.env.OPENAI_API_KEY) {
+      try {
+        aiResult = await analyzeImageWithOpenAI(imageBase64, mimeType);
+      } catch (err) {
+        analysisErrors.push(`openai: ${err.message}`);
+        console.warn('[AIController] analyzeImage OpenAI Vision failed:', err.message);
+      }
+    }
+
+    if (!aiResult) {
+      console.error('[AIController] analyzeImage: all providers failed:', analysisErrors);
+      return res.status(503).json({
+        error: 'Image analysis is temporarily unavailable. Please check your API keys and try again.',
+      });
+    }
 
     let analysis;
     try {
-      const cleaned = text.replace(/```json|```/g, '').trim();
-      const match = cleaned.match(/\{[\s\S]*\}/);
-      analysis = JSON.parse(match ? match[0] : cleaned);
+      analysis = parseImageAnalysisJson(aiResult.text);
     } catch (parseErr) {
       console.warn('[AIController] analyzeImage: could not parse AI JSON response:', parseErr.message);
       analysis = {
         direction: 'HOLD',
         confidence: 50,
-        reasoning: text,
+        reasoning: aiResult.text,
         disclaimer: 'For educational purposes only. Not financial advice.',
-        aiProvider: 'gemini',
       };
     }
 
-    analysis.aiProvider = 'gemini';
+    analysis.aiProvider = aiResult.provider;
 
     // Persist analysis
     try {
