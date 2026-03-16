@@ -96,6 +96,21 @@ async function adminLogin(req, res) {
 
     const isValid = await bcrypt.compare(password, user.password);
     if (!isValid) {
+      // Fallback: if plain-text matches the env-var password (e.g. password
+      // contains $$ or was stored with a different hash cost), rehash and sync.
+      if (envCredentialsMatch) {
+        const hashed = await bcrypt.hash(password, SALT_ROUNDS);
+        await pool.query(
+          'UPDATE users SET is_admin = TRUE, password = $2, is_blocked = FALSE WHERE email = $1',
+          [email.toLowerCase(), hashed]
+        );
+        const token = signAdminToken(user);
+        return res.json({
+          message: 'Admin login successful.',
+          token,
+          user: { id: user.id, email: user.email, name: user.name, isAdmin: true },
+        });
+      }
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 

@@ -148,6 +148,8 @@ REQUIRED JSON OUTPUT FORMAT — STRICT — NO MARKDOWN
   "keyRisks": "<brief description of what would invalidate this setup>",
   "marketBias": "BULLISH" | "BEARISH" | "NEUTRAL",
   "timeHorizon": "<estimated trade duration based on timeframe>",
+  "fibLevels": "<key Fibonacci retracement levels near current price>",
+  "emaAlignment": "<description of EMA 20/50/200 alignment and trend>",
   "disclaimer": "For educational purposes only. Not financial advice."
 }
 

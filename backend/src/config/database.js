@@ -232,11 +232,17 @@ async function initSchema() {
 async function seedAdmin(client) {
   const adminEmail = process.env.ADMIN_EMAIL;
   const adminPassword = process.env.ADMIN_PASSWORD;
+  const adminUrl = process.env.ADMIN_URL;
 
   if (!adminEmail || !adminPassword) {
     console.warn('[DB] ADMIN_EMAIL or ADMIN_PASSWORD not set — admin user not seeded.');
     return;
   }
+
+  console.log('[DB] Admin URL:', adminUrl || 'not set');
+
+  // Always hash and upsert — create or force-sync on every startup
+  const hashed = await bcrypt.hash(adminPassword, 12);
 
   const existing = await client.query(
     'SELECT id FROM users WHERE email = $1',
@@ -244,36 +250,19 @@ async function seedAdmin(client) {
   );
 
   if (existing.rows.length > 0) {
-    // Ensure the existing user is marked as admin
-    // Also sync the password if the env-var credential has changed
-    const currentUser = await client.query(
-      'SELECT password FROM users WHERE email = $1',
-      [adminEmail.toLowerCase()]
+    // Force sync password and admin flag every time
+    await client.query(
+      'UPDATE users SET is_admin = TRUE, password = $2, is_blocked = FALSE WHERE email = $1',
+      [adminEmail.toLowerCase(), hashed]
     );
-    const passwordMatches = await bcrypt.compare(adminPassword, currentUser.rows[0].password);
-    if (!passwordMatches) {
-      const hashed = await bcrypt.hash(adminPassword, 12);
-      await client.query(
-        'UPDATE users SET is_admin = TRUE, password = $2 WHERE email = $1',
-        [adminEmail.toLowerCase(), hashed]
-      );
-      console.log('[DB] Admin user already exists — verified admin flag and synced password.');
-    } else {
-      await client.query(
-        'UPDATE users SET is_admin = TRUE WHERE email = $1',
-        [adminEmail.toLowerCase()]
-      );
-      console.log('[DB] Admin user already exists — verified admin flag.');
-    }
-    return;
+    console.log('[DB] Admin password synced from env var.');
+  } else {
+    await client.query(
+      'INSERT INTO users (email, password, name, is_admin) VALUES ($1, $2, $3, TRUE)',
+      [adminEmail.toLowerCase(), hashed, 'Admin']
+    );
+    console.log('[DB] Admin user created.');
   }
-
-  const hashed = await bcrypt.hash(adminPassword, 12);
-  await client.query(
-    'INSERT INTO users (email, password, name, is_admin) VALUES ($1, $2, $3, TRUE)',
-    [adminEmail.toLowerCase(), hashed, 'Admin']
-  );
-  console.log('[DB] Admin user seeded.');
 }
 
 module.exports = { pool, initSchema };
