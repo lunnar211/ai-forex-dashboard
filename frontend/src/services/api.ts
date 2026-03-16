@@ -177,8 +177,8 @@ export const forex = {
 };
 
 export const ai = {
-  predict: (symbol: string, timeframe: string) =>
-    apiClient.post('/ai/predict', { symbol, timeframe }).then((r) => r.data),
+  predict: (symbol: string, timeframe: string, provider?: string) =>
+    apiClient.post('/ai/predict', { symbol, timeframe, ...(provider ? { provider } : {}) }).then((r) => r.data),
 
   getHistory: (symbol?: string, limit = 20, offset = 0) =>
     apiClient

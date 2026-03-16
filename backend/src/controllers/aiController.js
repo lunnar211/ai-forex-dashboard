@@ -6,6 +6,9 @@ const groqService = require('../services/groqService');
 const openaiService = require('../services/openaiService');
 const geminiService = require('../services/geminiService');
 const openrouterService = require('../services/openrouterService');
+const { generateDualPrediction } = require('../services/dualAIService');
+const { generatePrediction: claudePredict } = require('../services/claudeService');
+const { normaliseClaude } = require('../services/dualAIService');
 const { pool } = require('../config/database');
 const { extractIP, parseUserAgent, geoLookup } = require('../services/geoService');
 
@@ -191,7 +194,7 @@ async function savePrediction(userId, symbol, timeframe, prediction) {
 
 // POST /ai/predict
 async function predict(req, res) {
-  const { symbol = 'EUR/USD', timeframe = '1h' } = req.body;
+  const { symbol = 'EUR/USD', timeframe = '1h', provider } = req.body;
   const userId = req.user.id;
   const redis = req.app.locals.redis;
 
@@ -202,6 +205,13 @@ async function predict(req, res) {
   }
   if (!ALLOWED_TIMEFRAMES.has(timeframe)) {
     return res.status(400).json({ error: `Invalid timeframe. Allowed timeframes: ${[...ALLOWED_TIMEFRAMES].join(', ')}.` });
+  }
+
+  // Validate provider if supplied
+  const VALID_PROVIDERS = new Set(['groq', 'openai', 'gemini', 'openrouter', 'claude', 'anthropic', 'dual', 'dual_ai', 'auto']);
+  const normalizedProvider = typeof provider === 'string' ? provider.toLowerCase() : 'auto';
+  if (provider && !VALID_PROVIDERS.has(normalizedProvider)) {
+    return res.status(400).json({ error: `Invalid provider. Allowed providers: ${[...VALID_PROVIDERS].join(', ')}.` });
   }
 
   // Check if user is restricted from using AI predictions
@@ -218,39 +228,77 @@ async function predict(req, res) {
   }
 
   try {
-    // 1. Fetch candle data
-    const { candles, isMock } = await fetchOHLCV(symbol, timeframe, 100);
-
-    // 2. Calculate indicators
-    const indicators = calculateAll(candles);
-
-    // 3. Try AI providers in order
     let prediction = null;
-    const errors = [];
+    let isMock = false;
+    let indicators = null;
 
-    for (const [name, service] of [
-      ['groq', groqService],
-      ['openai', openaiService],
-      ['gemini', geminiService],
-      ['openrouter', openrouterService],
-    ]) {
-      try {
-        prediction = await withTimeout(
-          service.getAIPrediction(symbol, timeframe, indicators, candles),
-          AI_PROVIDER_TIMEOUT_MS
-        );
-        prediction.aiProvider = name;
-        break;
-      } catch (err) {
-        errors.push(`${name}: ${err.message}`);
-        console.warn(`[AIController] ${name} failed: ${err.message}`);
+    // ── Provider-specific routing ─────────────────────────────────────────────
+
+    if (normalizedProvider === 'dual' || normalizedProvider === 'dual_ai') {
+      // Dual AI: Claude + Groq in parallel (dualAIService fetches data internally)
+      prediction = await withTimeout(
+        generateDualPrediction(symbol, timeframe),
+        AI_PROVIDER_TIMEOUT_MS * 2
+      );
+      // Fetch indicators separately for the response (dualAIService uses its own copy)
+      const fetched = await fetchOHLCV(symbol, timeframe, 100);
+      isMock = fetched.isMock;
+      indicators = calculateAll(fetched.candles);
+    } else if (normalizedProvider === 'claude' || normalizedProvider === 'anthropic') {
+      // Claude standalone
+      const fetched = await fetchOHLCV(symbol, timeframe, 100);
+      isMock = fetched.isMock;
+      indicators = calculateAll(fetched.candles);
+      const claudeRaw = await withTimeout(
+        claudePredict(symbol, timeframe),
+        AI_PROVIDER_TIMEOUT_MS
+      );
+      prediction = normaliseClaude(claudeRaw, symbol, indicators);
+    } else {
+      // 1. Fetch candle data
+      const fetched = await fetchOHLCV(symbol, timeframe, 100);
+      isMock = fetched.isMock;
+      const candles = fetched.candles;
+
+      // 2. Calculate indicators
+      indicators = calculateAll(candles);
+
+      // 3. Try requested provider first, then fall back sequentially
+      const ALL_PROVIDERS = [
+        ['groq', groqService],
+        ['openai', openaiService],
+        ['gemini', geminiService],
+        ['openrouter', openrouterService],
+      ];
+
+      // If a specific single provider was requested, try it first
+      let orderedProviders = ALL_PROVIDERS;
+      if (normalizedProvider && normalizedProvider !== 'auto') {
+        const requested = ALL_PROVIDERS.find(([name]) => name === normalizedProvider);
+        const rest = ALL_PROVIDERS.filter(([name]) => name !== normalizedProvider);
+        if (requested) orderedProviders = [requested, ...rest];
       }
-    }
 
-    // 4. Final fallback: rule-based
-    if (!prediction) {
-      console.warn('[AIController] All AI providers failed — using rule-based fallback. Errors:', errors);
-      prediction = ruleBased(symbol, indicators);
+      const errors = [];
+      for (const [name, service] of orderedProviders) {
+        try {
+          prediction = await withTimeout(
+            service.getAIPrediction(symbol, timeframe, indicators, candles),
+            AI_PROVIDER_TIMEOUT_MS
+          );
+          prediction.aiProvider = name;
+          break;
+        } catch (err) {
+          errors.push(`${name}: ${err.message}`);
+          console.warn(`[AIController] ${name} failed: ${err.message}`);
+        }
+      }
+
+      // 4. Final fallback: rule-based
+      if (!prediction) {
+        console.warn('[AIController] All AI providers failed — using rule-based fallback. Errors:', errors);
+        prediction = ruleBased(symbol, indicators);
+      }
     }
 
     // 5. Persist

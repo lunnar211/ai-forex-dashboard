@@ -111,6 +111,15 @@ export interface Prediction {
   emaAlignment?: string;
   disclaimer: string;
   aiProvider: string;
+  // Dual AI extended fields
+  agreement?: boolean | null;
+  providers_used?: string[];
+  kelly_position_size?: string;
+  confluence_score?: number;
+  individual_results?: {
+    claude?: { direction: string; confidence: number; reasoning: string; indicators?: Record<string, unknown> };
+    groq?:   { direction: string; confidence: number; reasoning: string };
+  };
 }
 
 export interface PredictResponse {

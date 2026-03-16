@@ -8,6 +8,7 @@
     "verify-admin": "node scripts/verify-admin.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
     "@google/generative-ai": "^0.2.1",
     "axios": "^1.6.2",
     "bcryptjs": "^2.4.3",
