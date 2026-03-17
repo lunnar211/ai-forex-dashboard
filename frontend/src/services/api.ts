@@ -14,7 +14,10 @@ const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
+  // Only inject the stored token when the caller has not already supplied one.
+  // Admin API calls pass their own token explicitly; overriding it would cause
+  // session-expired redirects if a regular-user token is also in storage.
+  if (typeof window !== 'undefined' && !config.headers.Authorization) {
     try {
       const stored = localStorage.getItem('auth-storage');
       const parsed = stored ? JSON.parse(stored) : {};

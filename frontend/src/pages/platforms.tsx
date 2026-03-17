@@ -143,6 +143,59 @@ const PLATFORM_CATEGORIES: PlatformCategoryDef[] = [
   },
 ];
 
+const T212_SYMBOL_MAP: Record<string, string> = {
+  'EUR/USD': 'EURUSD',
+  'GBP/USD': 'GBPUSD',
+  'USD/JPY': 'USDJPY',
+  'AUD/USD': 'AUDUSD',
+  'XAU/USD': 'XAUUSD',
+  'USD/CAD': 'USDCAD',
+  'USD/CHF': 'USDCHF',
+  'NZD/USD': 'NZDUSD',
+  'EUR/GBP': 'EURGBP',
+  'EUR/JPY': 'EURJPY',
+  'GBP/JPY': 'GBPJPY',
+  'XAG/USD': 'XAGUSD',
+};
+
+// Trading212 embed uses numeric interval codes
+const T212_TIMEFRAME_MAP: Record<string, string> = {
+  '15min': '15',
+  '1h':    '60',
+  '4h':    '240',
+  '1day':  '1D',
+};
+
+function Trading212Chart({ symbol, timeframe }: { symbol: string; timeframe: string }) {
+  const t212Symbol = T212_SYMBOL_MAP[symbol] || 'EURUSD';
+  const t212Interval = T212_TIMEFRAME_MAP[timeframe] || '60';
+  const embedUrl = `https://www.trading212.com/en/charts/?symbol=${t212Symbol}&interval=${t212Interval}`;
+  return (
+    <div style={{ position: 'relative', height: 500, width: '100%', borderRadius: 12, overflow: 'hidden', background: '#0f0f1a', border: '1px solid #1e1e3a' }}>
+      <iframe
+        src={embedUrl}
+        width="100%"
+        height="100%"
+        frameBorder="0"
+        scrolling="no"
+        allowFullScreen
+        style={{ borderRadius: 12 }}
+        title={`Trading212 ${symbol} Chart`}
+      />
+      <div style={{ position: 'absolute', bottom: 10, right: 10, background: '#0f0f1a', borderRadius: 6, padding: '6px 12px', border: '1px solid #1e1e3a' }}>
+        <a
+          href={`https://www.trading212.com/en/charts/?symbol=${t212Symbol}&interval=${t212Interval}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: '#22c55e', fontSize: 12, textDecoration: 'none' }}
+        >
+          Open in Trading212 →
+        </a>
+      </div>
+    </div>
+  );
+}
+
 interface TradingPlatformDef {
   name: string;
   description: string;
@@ -328,6 +381,7 @@ export default function Platforms() {
   const [error, setError] = useState('');
   const [chartError, setChartError] = useState('');
   const [aiProvider, setAiProvider] = useState<'multi' | 'auto' | 'dual' | 'claude' | 'groq'>('multi');
+  const [chartSource, setChartSource] = useState<'tradingview' | 'trading212'>('tradingview');
   const [liveQuote, setLiveQuote] = useState<{
     current_price: number; open: number; high: number; low: number;
     change: number; change_pct: string; previous_close: number;
@@ -635,18 +689,45 @@ export default function Platforms() {
                     </div>
                   </div>
 
+                  {/* Chart source selector */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs text-[#94a3b8] font-medium">Chart:</span>
+                    <div className="flex items-center gap-1 bg-[#0f172a] border border-[#334155] rounded-xl p-1">
+                      <button
+                        onClick={() => setChartSource('tradingview')}
+                        className={clsx(
+                          'px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150',
+                          chartSource === 'tradingview' ? 'bg-blue-600 text-white shadow' : 'text-[#94a3b8] hover:text-white'
+                        )}
+                      >
+                        📈 TradingView
+                      </button>
+                      <button
+                        onClick={() => setChartSource('trading212')}
+                        className={clsx(
+                          'px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-150',
+                          chartSource === 'trading212' ? 'bg-green-600 text-white shadow' : 'text-[#94a3b8] hover:text-white'
+                        )}
+                      >
+                        💹 Trading212
+                      </button>
+                    </div>
+                  </div>
+
                   <div ref={chartRef} className="bg-[#1e293b] border border-[#334155] rounded-2xl overflow-hidden">
                     <div className="px-4 py-3 border-b border-[#334155] flex items-center justify-between">
                       <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider">Live Chart</p>
-                      {loadingChart && (
+                      {loadingChart && chartSource === 'tradingview' && (
                         <div className="flex items-center gap-1.5 text-xs text-[#475569]">
                           <div className="w-3 h-3 border border-[#475569] border-t-blue-400 rounded-full animate-spin" />
                           Loading…
                         </div>
                       )}
                     </div>
-                    <div style={{ height: 400 }}>
-                      {chartError ? (
+                    <div style={{ height: chartSource === 'trading212' ? 500 : 400 }}>
+                      {chartSource === 'trading212' ? (
+                        <Trading212Chart symbol={selectedSymbol!} timeframe={timeframe} />
+                      ) : chartError ? (
                         <div className="w-full h-full flex items-center justify-center p-6 text-sm text-red-400">{chartError}</div>
                       ) : (
                         <ChartPanel
@@ -657,6 +738,27 @@ export default function Platforms() {
                       )}
                     </div>
                   </div>
+
+                  {chartSource === 'trading212' && (
+                    <div style={{ marginTop: 16, padding: 20, background: '#0a1a0a', borderRadius: 12, border: '1px solid #16a34a33', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                      <div>
+                        <div style={{ color: '#22c55e', fontWeight: 700, fontSize: 14 }}>
+                          💹 Trading212 Live Chart
+                        </div>
+                        <div style={{ color: '#64748b', fontSize: 12, marginTop: 2 }}>
+                          Real-time data from Trading212 · Zero commission trading
+                        </div>
+                      </div>
+                      <a
+                        href="https://www.trading212.com"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ padding: '8px 18px', borderRadius: 8, background: 'linear-gradient(135deg, #16a34a, #15803d)', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
+                      >
+                        Trade on Trading212 →
+                      </a>
+                    </div>
+                  )}
 
                   <div className="flex justify-center">
                     <div className="flex flex-col items-center gap-3">
