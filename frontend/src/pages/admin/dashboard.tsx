@@ -115,6 +115,7 @@ const ACTION_COLORS: Record<string, string> = {
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const [authed, setAuthed] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [adminUser, setAdminUser] = useState<{ email: string; name: string } | null>(null);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -173,42 +174,47 @@ export default function AdminDashboard() {
     if (apiErr.status === 401 || apiErr.status === 403) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      router.replace('/admin?reason=session_expired');
+      localStorage.removeItem('is_admin');
+      window.location.replace('/admin?reason=session_expired');
       return true;
     }
     return false;
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    if (!storedToken) {
-      router.replace('/admin?reason=session_expired');
+    const storedIsAdmin = localStorage.getItem('is_admin');
+
+    // Not logged in at all
+    if (!storedToken || !storedIsAdmin) {
+      window.location.replace('/admin?reason=session_expired');
       return;
     }
 
     let parsedUser: { is_admin?: boolean; email?: string; name?: string } = {};
+    const storedUser = localStorage.getItem('user');
     if (storedUser) {
       try { parsedUser = JSON.parse(storedUser); } catch { /* ignore */ }
     }
 
-    if (!parsedUser?.is_admin) {
-      router.replace('/admin?reason=not_admin');
-      return;
-    }
-
-    setToken(storedToken);
-    setAdminUser(parsedUser as { email: string; name: string });
-
-    // Verify token is still valid with backend (async — runs in parallel with
-    // data loading; if it fails, both the verify and subsequent 401s from API
-    // calls will trigger a redirect to the login page).
-    admin.verify(storedToken).catch(() => {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      router.replace('/admin?reason=session_expired');
-    });
-  }, [router]);
+    // Verify token is still valid with backend
+    admin.verify(storedToken)
+      .then(res => {
+        if (!res?.user?.is_admin) {
+          throw new Error('User does not have admin privileges');
+        }
+        // Token valid — set user state
+        setToken(storedToken);
+        setAdminUser((res.user || parsedUser) as { email: string; name: string });
+        setAuthed(true);
+      })
+      .catch(() => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('is_admin');
+        window.location.replace('/admin?reason=session_expired');
+      });
+  }, []);
 
   const loadUsers = useCallback(async () => {
     if (!token) return;
@@ -417,10 +423,26 @@ export default function AdminDashboard() {
   function handleLogout() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('is_admin');
     router.replace('/admin');
   }
 
   const regularUsers = users.filter((u) => !u.is_admin);
+
+  // Show loading until auth confirmed
+  if (!authed) {
+    return (
+      <div className="min-h-screen bg-[#0f172a] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <svg className="animate-spin w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+          </svg>
+          <p className="text-[#64748b] text-sm">Verifying session…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0f172a] text-white">

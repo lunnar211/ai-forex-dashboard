@@ -1,7 +1,12 @@
 'use client';
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { auth } from '../../services/api';
+import axios from 'axios';
+
+const API_URL =
+  typeof window !== 'undefined'
+    ? '/api'
+    : (process.env.NEXT_PUBLIC_API_URL || 'https://ai-forex-backend.onrender.com');
 
 export default function AdminLogin() {
   const router = useRouter();
@@ -11,6 +16,20 @@ export default function AdminLogin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    // Clear session_expired reason from URL without reload
+    if (window.location.search.includes('reason=')) {
+      window.history.replaceState({}, '', '/admin');
+    }
+
+    // If already logged in and is_admin, redirect to dashboard
+    const token = localStorage.getItem('token');
+    const is_admin = localStorage.getItem('is_admin');
+    if (token && is_admin === 'true') {
+      window.location.replace('/admin/dashboard');
+    }
+  }, []);
 
   useEffect(() => {
     if (router.query.reason === 'session_expired') {
@@ -24,34 +43,55 @@ export default function AdminLogin() {
     e.preventDefault();
     setError('');
     setLoading(true);
+
     try {
-      const data = await auth.login(email, password);
-
-      if (data.success && data.token) {
-        // Save token to localStorage
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data.user));
-
-        // Check is_admin before redirecting
-        if (data.user?.is_admin) {
-          window.location.href = '/admin/dashboard';
-        } else {
-          setError('You do not have admin privileges.');
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
+      const res = await axios.post(
+        `${API_URL}/auth/login`,
+        {
+          email: email.trim().toLowerCase(),
+          password,
+        },
+        {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 15000,
         }
-      } else {
-        setError('Login failed. Check credentials.');
+      );
+
+      const { token, user } = res.data;
+
+      if (!token) {
+        setError('No token received from server.');
+        return;
       }
+
+      if (!user?.is_admin) {
+        setError('This account does not have admin privileges.');
+        return;
+      }
+
+      // Save BEFORE redirecting
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('is_admin', 'true');
+
+      // Small delay to ensure localStorage is written
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Hard redirect — clears session_expired from URL
+      window.location.replace('/admin/dashboard');
+
     } catch (err: unknown) {
-      const apiErr = err as Error & { status?: number };
-      const msg = apiErr.message || 'Login failed';
-      if (msg.includes('blocked') || msg.includes('suspended')) {
-        setError('Your account has been blocked.');
-      } else if (msg.includes('not found') || msg.includes('Invalid') || msg.includes('incorrect')) {
+      const apiErr = err as { response?: { status?: number; data?: { error?: string } }; code?: string };
+      const msg = apiErr?.response?.data?.error || '';
+
+      if (apiErr?.response?.status === 401) {
         setError('Email or password is incorrect.');
+      } else if (apiErr?.response?.status === 403) {
+        setError('This account does not have admin access.');
+      } else if (apiErr?.code === 'ECONNABORTED') {
+        setError('Server timeout. Try again.');
       } else {
-        setError(msg);
+        setError(msg || 'Login failed. Check your connection.');
       }
     } finally {
       setLoading(false);
