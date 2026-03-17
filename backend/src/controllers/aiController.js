@@ -6,6 +6,8 @@ const groqService = require('../services/groqService');
 const openaiService = require('../services/openaiService');
 const geminiService = require('../services/geminiService');
 const openrouterService = require('../services/openrouterService');
+const mistralService = require('../services/mistralService');
+const cohereService = require('../services/cohereService');
 const { generateDualPrediction } = require('../services/dualAIService');
 const { generatePrediction: claudePredict } = require('../services/claudeService');
 const { normaliseClaude } = require('../services/dualAIService');
@@ -209,7 +211,7 @@ async function predict(req, res) {
   }
 
   // Validate provider if supplied
-  const VALID_PROVIDERS = new Set(['groq', 'openai', 'gemini', 'openrouter', 'claude', 'anthropic', 'dual', 'dual_ai', 'auto', 'multi', 'consensus', 'all']);
+  const VALID_PROVIDERS = new Set(['groq', 'openai', 'gemini', 'openrouter', 'mistral', 'cohere', 'claude', 'anthropic', 'dual', 'dual_ai', 'auto', 'multi', 'consensus', 'all']);
   const normalizedProvider = typeof provider === 'string' ? provider.toLowerCase() : 'auto';
   if (provider && !VALID_PROVIDERS.has(normalizedProvider)) {
     return res.status(400).json({ error: `Invalid provider. Allowed providers: ${[...VALID_PROVIDERS].join(', ')}.` });
@@ -280,6 +282,8 @@ async function predict(req, res) {
         ['openai', openaiService],
         ['gemini', geminiService],
         ['openrouter', openrouterService],
+        ['mistral', mistralService],
+        ['cohere', cohereService],
       ];
 
       // If a specific single provider was requested, try it first

@@ -174,6 +174,7 @@ function buildMasterPrompt(marketData) {
 ═══════════════════════════════════════════════
 LIVE MARKET DATA — USE THIS FOR YOUR ANALYSIS
 ═══════════════════════════════════════════════
+Symbol:          ${quote.symbol}
 Current Price:   ${quote.current_price}
 Open:            ${quote.open}
 High (today):    ${quote.high}

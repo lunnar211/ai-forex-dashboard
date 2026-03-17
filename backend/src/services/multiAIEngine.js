@@ -8,14 +8,13 @@
  * consensus algorithm, and returns ONE final high-accuracy trading signal.
  *
  * Provider weights (must total 1.0):
- *   Claude      30%  – best at maths & structured reasoning
- *   OpenAI      25%  – strong general financial analysis
- *   Groq        20%  – fast, reliable fundamentals
- *   Gemini      15%  – good pattern recognition
- *   OpenRouter  10%  – additional signal diversity
+ *   Groq        25%  – fast, reliable fundamentals (llama-3.3-70b-versatile)
+ *   Gemini      25%  – strong pattern recognition (gemini-2.0-flash)
+ *   Mistral     20%  – precise structured reasoning (mistral-small-latest)
+ *   Cohere      15%  – broad contextual analysis (command-r)
+ *   OpenRouter  15%  – additional signal diversity (llama-3.1-8b-instruct:free)
  */
 
-const Anthropic              = require('@anthropic-ai/sdk');
 const Groq                   = require('groq-sdk');
 const OpenAI                 = require('openai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
@@ -23,13 +22,14 @@ const axios                  = require('axios');
 const { buildMasterPrompt }  = require('./masterPrompt');
 const { getAllMarketData }    = require('./marketDataService');
 
-// ── Provider weights ───────────────────────────────────────────────────────────
+// ── Provider weights ─────────────────────────────────────────────────────────
+// Must total exactly 1.0: 0.25+0.25+0.20+0.15+0.15 = 1.00
 const WEIGHTS = {
-  claude:     0.30,
-  openai:     0.25,
-  groq:       0.20,
-  gemini:     0.15,
-  openrouter: 0.10,
+  groq:       0.25,
+  gemini:     0.25,
+  mistral:    0.20,
+  cohere:     0.15,
+  openrouter: 0.15,
 };
 
 // ── Timeout wrapper ────────────────────────────────────────────────────────────
@@ -43,21 +43,6 @@ function withTimeout(promise, ms) {
 }
 
 // ── Individual AI callers ──────────────────────────────────────────────────────
-
-async function callClaude(symbol, timeframe, systemPrompt) {
-  if (!process.env.ANTHROPIC_API_KEY) throw new Error('No ANTHROPIC_API_KEY');
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
-  const msg = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 2000,
-    system: systemPrompt,
-    messages: [{
-      role: 'user',
-      content: `Analyse: Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`,
-    }],
-  });
-  return parseJSON(msg.content[0].text, 'claude');
-}
 
 async function callGroq(symbol, timeframe, systemPrompt) {
   if (!process.env.GROQ_API_KEY) throw new Error('No GROQ_API_KEY');
@@ -76,13 +61,25 @@ async function callGroq(symbol, timeframe, systemPrompt) {
   return parseJSON(res.choices[0].message.content, 'groq');
 }
 
-async function callOpenAI(symbol, timeframe, systemPrompt) {
-  if (!process.env.OPENAI_API_KEY) throw new Error('No OPENAI_API_KEY');
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+async function callGemini(symbol, timeframe, systemPrompt) {
+  if (!process.env.GEMINI_API_KEY) throw new Error('No GEMINI_API_KEY');
+  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const result = await model.generateContent(
+    `${systemPrompt}\n\nAnalyse: Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`
+  );
+  return parseJSON(result.response.text(), 'gemini');
+}
+
+async function callMistral(symbol, timeframe, systemPrompt) {
+  if (!process.env.MISTRAL_API_KEY) throw new Error('No MISTRAL_API_KEY');
+  const client = new OpenAI({
+    apiKey: process.env.MISTRAL_API_KEY,
+    baseURL: 'https://api.mistral.ai/v1',
+  });
   const res = await client.chat.completions.create({
-    model: 'gpt-4o',
+    model: 'mistral-small-latest',
     max_tokens: 2000,
-    response_format: { type: 'json_object' },
     messages: [
       { role: 'system', content: systemPrompt },
       {
@@ -91,17 +88,29 @@ async function callOpenAI(symbol, timeframe, systemPrompt) {
       },
     ],
   });
-  return parseJSON(res.choices[0].message.content, 'openai');
+  return parseJSON(res.choices[0].message.content, 'mistral');
 }
 
-async function callGemini(symbol, timeframe, systemPrompt) {
-  if (!process.env.GEMINI_API_KEY) throw new Error('No GEMINI_API_KEY');
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
-  const result = await model.generateContent(
-    `${systemPrompt}\n\nAnalyse: Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`
+async function callCohere(symbol, timeframe, systemPrompt) {
+  if (!process.env.COHERE_API_KEY) throw new Error('No COHERE_API_KEY');
+  const res = await axios.post(
+    'https://api.cohere.com/v1/chat',
+    {
+      model: 'command-r',
+      preamble: systemPrompt,
+      message: `Analyse: Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`,
+      temperature: 0.3,
+      max_tokens: 2000,
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.COHERE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 30000,
+    }
   );
-  return parseJSON(result.response.text(), 'gemini');
+  return parseJSON(res.data?.text || '', 'cohere');
 }
 
 async function callOpenRouter(symbol, timeframe, systemPrompt) {
@@ -109,7 +118,8 @@ async function callOpenRouter(symbol, timeframe, systemPrompt) {
   const res = await axios.post(
     'https://openrouter.ai/api/v1/chat/completions',
     {
-      model: 'meta-llama/llama-3.1-405b-instruct',
+      // Free-tier model specified in deployment configuration
+      model: 'meta-llama/llama-3.1-8b-instruct:free',
       max_tokens: 2000,
       messages: [
         { role: 'system', content: systemPrompt },
@@ -373,19 +383,19 @@ async function generateMultiAIPrediction(symbol, timeframe) {
 
   console.log(`[MultiAI] Starting parallel analysis: ${symbol} ${timeframe}`);
 
-  const [claude, groq, openaiRes, gemini, openrouter] = await Promise.allSettled([
-    withTimeout(callClaude(symbol, timeframe, livePrompt),     PROVIDER_TIMEOUT_MS),
+  const [groq, gemini, mistral, cohere, openrouter] = await Promise.allSettled([
     withTimeout(callGroq(symbol, timeframe, livePrompt),       PROVIDER_TIMEOUT_MS),
-    withTimeout(callOpenAI(symbol, timeframe, livePrompt),     PROVIDER_TIMEOUT_MS),
     withTimeout(callGemini(symbol, timeframe, livePrompt),     PROVIDER_TIMEOUT_MS),
+    withTimeout(callMistral(symbol, timeframe, livePrompt),    PROVIDER_TIMEOUT_MS),
+    withTimeout(callCohere(symbol, timeframe, livePrompt),     PROVIDER_TIMEOUT_MS),
     withTimeout(callOpenRouter(symbol, timeframe, livePrompt), PROVIDER_TIMEOUT_MS),
   ]);
 
   const results = [
-    claude.status     === 'fulfilled' ? claude.value     : { provider: 'claude',     data: null, error: claude.reason?.message     || 'Unknown error' },
     groq.status       === 'fulfilled' ? groq.value       : { provider: 'groq',       data: null, error: groq.reason?.message       || 'Unknown error' },
-    openaiRes.status  === 'fulfilled' ? openaiRes.value  : { provider: 'openai',     data: null, error: openaiRes.reason?.message  || 'Unknown error' },
     gemini.status     === 'fulfilled' ? gemini.value     : { provider: 'gemini',     data: null, error: gemini.reason?.message     || 'Unknown error' },
+    mistral.status    === 'fulfilled' ? mistral.value    : { provider: 'mistral',    data: null, error: mistral.reason?.message    || 'Unknown error' },
+    cohere.status     === 'fulfilled' ? cohere.value     : { provider: 'cohere',     data: null, error: cohere.reason?.message     || 'Unknown error' },
     openrouter.status === 'fulfilled' ? openrouter.value : { provider: 'openrouter', data: null, error: openrouter.reason?.message || 'Unknown error' },
   ];
 
