@@ -386,6 +386,24 @@ export default function Dashboard() {
           <p className="text-xs text-[#334155] text-center pb-2">
             ⚠️ For educational purposes only. Not financial advice.
           </p>
+
+          {/* Ko-fi support banner */}
+          <div className="flex justify-center pb-4">
+            <a
+              href="https://ko-fi.com/dipeshkarki"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 hover:opacity-90"
+              style={{
+                background: 'linear-gradient(135deg, rgba(255,94,91,0.18), rgba(255,94,91,0.10))',
+                border: '1px solid rgba(255,94,91,0.35)',
+                color: '#ff5e5b',
+                textDecoration: 'none',
+              }}
+            >
+              ☕ Support ForexAI Terminal on Ko-fi
+            </a>
+          </div>
         </main>
       </div>
     </div>

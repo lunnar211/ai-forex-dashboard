@@ -98,7 +98,8 @@ function createBot() {
       `👤 *Account:*\n` +
       `/register — Create account\n` +
       `/dashboard — Open dashboard\n\n` +
-      `Type /help for full list.`
+      `Type /help for full list.\n\n` +
+      `☕ Support us: https://ko-fi.com/dipeshkarki`
     )
   );
 
@@ -125,7 +126,22 @@ function createBot() {
       `*Account:*\n` +
       `/register — Sign up\n` +
       `/dashboard — Dashboard link\n` +
-      `/history — Your predictions`
+      `/history — Your predictions\n\n` +
+      `*Support:*\n` +
+      `/support — Support us on Ko-fi ☕\n\n` +
+      `☕ Ko-fi: https://ko-fi.com/dipeshkarki`
+    )
+  );
+
+  bot.command('support', (ctx) =>
+    ctx.replyWithMarkdown(
+      `☕ *Support ForexAI Terminal*\n\n` +
+      `This bot is *completely FREE*.\n` +
+      `If our AI signals help your trading,\n` +
+      `please consider supporting us!\n\n` +
+      `☕ *Ko-fi:* https://ko-fi.com/dipeshkarki\n\n` +
+      `Every coffee keeps the AI running 24/7.\n` +
+      `Thank you! 🙏`
     )
   );
 

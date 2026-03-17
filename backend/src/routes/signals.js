@@ -51,16 +51,17 @@ router.get('/live', signalsRateLimiter, authMiddleware, async (req, res) => {
     try {
       const pred = await generateMultiAIPrediction(symbol, '1h');
       signals.push({ symbol, ...pred });
-    } catch (err) {
+    } catch {
       signals.push({
         symbol,
-        direction: 'NEUTRAL',
-        confidence: 0,
-        entry_price: null,
-        stop_loss: null,
+        setup:         false,
+        direction:     'NEUTRAL',
+        confidence:    0,
+        entry_price:   null,
+        stop_loss:     null,
         take_profit_1: null,
         take_profit_2: null,
-        error: err.message || 'Generation failed',
+        reason:        'Analysis unavailable',
       });
     }
     // Wait 2 seconds between each pair to avoid provider rate limits

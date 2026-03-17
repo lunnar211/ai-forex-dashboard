@@ -13,10 +13,12 @@ interface LiveSignal {
   symbol: string;
   direction?: string;
   confidence?: number;
-  entry_price?: number;
-  stop_loss?: number;
-  take_profit_1?: number;
-  take_profit_2?: number;
+  entry_price?: string | number | null;
+  stop_loss?: string | number | null;
+  take_profit_1?: string | number | null;
+  take_profit_2?: string | number | null;
+  setup?: boolean;
+  reason?: string;
   error?: string;
 }
 
@@ -25,8 +27,11 @@ function getPriceDecimals(symbol: string): number {
   if (['XAU/USD','XAG/USD'].includes(symbol)) return 2;
   return 5;
 }
-function fmtP(n: number | null | undefined, sym: string) {
-  return n == null ? '—' : n.toFixed(getPriceDecimals(sym));
+function fmtP(n: string | number | null | undefined, sym: string) {
+  if (n == null || n === '' || n === 'null' || n === 'undefined') return '—';
+  const num = typeof n === 'string' ? parseFloat(n) : n;
+  if (!num || isNaN(num)) return '—';
+  return num.toFixed(getPriceDecimals(sym));
 }
 
 const DIR_BORDER: Record<string, string> = {
@@ -226,41 +231,45 @@ export default function Signals() {
                       <span className={clsx('px-2 py-0.5 rounded text-xs font-black border', border, txt)}>{dir}</span>
                     </div>
 
-                    {s.error ? (
-                      <p className="text-xs text-red-400 mb-2">{s.error}</p>
-                    ) : (
-                      <>
-                        {/* Confidence bar */}
-                        <div className="mb-3">
-                          <div className="flex justify-between text-xs text-[#94a3b8] mb-1">
-                            <span>Confidence</span>
-                            <span className={clsx('font-bold', txt)}>{conf}%</span>
-                          </div>
-                          <div className="w-full h-1.5 bg-[#334155] rounded-full overflow-hidden">
-                            <div
-                              className={clsx('h-full rounded-full transition-all', dir === 'BUY' ? 'bg-[#22c55e]' : dir === 'SELL' ? 'bg-[#ef4444]' : 'bg-[#eab308]')}
-                              style={{ width: `${conf}%` }}
-                            />
-                          </div>
-                        </div>
+                    {(() => {
+                      const hasSignal = s.setup === true &&
+                        s.direction && s.direction !== 'NEUTRAL' && s.direction !== 'HOLD';
+                      const displayMessage = !hasSignal
+                        ? (s.setup === false ? 'No clear setup found' : null)
+                        : null;
+                      return displayMessage ? (
+                        <p className="text-xs text-[#64748b] italic mb-2">{displayMessage}</p>
+                      ) : null;
+                    })()}
+                    {/* Confidence bar */}
+                    <div className="mb-3">
+                      <div className="flex justify-between text-xs text-[#94a3b8] mb-1">
+                        <span>Confidence</span>
+                        <span className={clsx('font-bold', txt)}>{conf}%</span>
+                      </div>
+                      <div className="w-full h-1.5 bg-[#334155] rounded-full overflow-hidden">
+                        <div
+                          className={clsx('h-full rounded-full transition-all', dir === 'BUY' ? 'bg-[#22c55e]' : dir === 'SELL' ? 'bg-[#ef4444]' : 'bg-[#eab308]')}
+                          style={{ width: `${conf}%` }}
+                        />
+                      </div>
+                    </div>
 
-                        {/* Prices */}
-                        <div className="grid grid-cols-3 gap-1.5 text-xs">
-                          <div className="bg-black/20 rounded-lg p-2">
-                            <p className="text-[#94a3b8] mb-0.5">Entry</p>
-                            <p className="font-mono text-blue-300 text-[11px]">{fmtP(s.entry_price, s.symbol)}</p>
-                          </div>
-                          <div className="bg-black/20 rounded-lg p-2">
-                            <p className="text-[#94a3b8] mb-0.5">SL</p>
-                            <p className="font-mono text-red-400 text-[11px]">{fmtP(s.stop_loss, s.symbol)}</p>
-                          </div>
-                          <div className="bg-black/20 rounded-lg p-2">
-                            <p className="text-[#94a3b8] mb-0.5">TP</p>
-                            <p className="font-mono text-green-400 text-[11px]">{fmtP(s.take_profit_1, s.symbol)}</p>
-                          </div>
-                        </div>
-                      </>
-                    )}
+                    {/* Prices */}
+                    <div className="grid grid-cols-3 gap-1.5 text-xs">
+                      <div className="bg-black/20 rounded-lg p-2">
+                        <p className="text-[#94a3b8] mb-0.5">Entry</p>
+                        <p className="font-mono text-blue-300 text-[11px]">{fmtP(s.entry_price, s.symbol)}</p>
+                      </div>
+                      <div className="bg-black/20 rounded-lg p-2">
+                        <p className="text-[#94a3b8] mb-0.5">SL</p>
+                        <p className="font-mono text-red-400 text-[11px]">{fmtP(s.stop_loss, s.symbol)}</p>
+                      </div>
+                      <div className="bg-black/20 rounded-lg p-2">
+                        <p className="text-[#94a3b8] mb-0.5">TP</p>
+                        <p className="font-mono text-green-400 text-[11px]">{fmtP(s.take_profit_1, s.symbol)}</p>
+                      </div>
+                    </div>
                   </div>
                 );
               })}
