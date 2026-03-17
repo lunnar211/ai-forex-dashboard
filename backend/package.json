@@ -24,7 +24,8 @@
     "nodemailer": "^8.0.2",
     "openai": "^4.20.1",
     "pg": "^8.11.3",
-    "redis": "^4.6.10"
+    "redis": "^4.6.10",
+    "telegraf": "^4.16.3"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"

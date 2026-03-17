@@ -98,6 +98,9 @@ export const admin = {
   login: (email: string, password: string) =>
     apiClient.post('/admin/login', { email, password }).then((r) => r.data),
 
+  verify: (token: string) =>
+    apiClient.get('/admin/verify', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data),
+
   listUsers: (token: string) =>
     apiClient.get('/admin/users', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data),
 
@@ -210,6 +213,8 @@ export const ai = {
 
   getSignals: () => apiClient.get('/ai/signals').then((r) => r.data),
 
+  getLiveSignals: () => apiClient.get('/signals/live').then((r) => r.data),
+
   analyzeImage: (formData: FormData) => {
     const file = formData.get('image');
     if (file instanceof File) {
@@ -227,6 +232,14 @@ export const ai = {
       })
       .then((r) => r.data);
   },
+};
+
+export const market = {
+  getQuote: (symbol: string) =>
+    apiClient.get('/market/quote', { params: { symbol } }).then((r) => r.data),
+
+  getNews: (symbol?: string) =>
+    apiClient.get('/market/news', { params: { symbol: symbol || 'EUR/USD' } }).then((r) => r.data),
 };
 
 export default apiClient;

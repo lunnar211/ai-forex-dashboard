@@ -248,6 +248,17 @@ async function initSchema() {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS broker_connected BOOLEAN DEFAULT FALSE;
     `);
 
+    // ── Telegram subscribers table ───────────────────────────────────────────
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS telegram_subscribers (
+        id            SERIAL PRIMARY KEY,
+        telegram_id   BIGINT UNIQUE NOT NULL,
+        username      VARCHAR(100),
+        subscribed_at TIMESTAMPTZ DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_telegram_subscribers_telegram_id ON telegram_subscribers(telegram_id);
+    `);
+
     // ── Online sessions table ────────────────────────────────────────────────
     await client.query(`
       CREATE TABLE IF NOT EXISTS online_sessions (

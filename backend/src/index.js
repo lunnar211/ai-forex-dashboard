@@ -19,6 +19,8 @@ const aiRoutes = require('./routes/ai');
 const adminRoutes = require('./routes/admin');
 const activityRoutes = require('./routes/activity');
 const marketRoutes = require('./routes/market');
+const signalsRoutes = require('./routes/signals');
+const { startBot } = require('./services/telegramBot');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -62,6 +64,7 @@ app.use('/ai', aiRoutes);
 app.use('/admin', adminRoutes);
 app.use('/activity', activityRoutes);
 app.use('/api/market', marketRoutes);
+app.use('/signals', signalsRoutes);
 
 // ─── Health endpoint ─────────────────────────────────────────────────────────
 
@@ -171,6 +174,9 @@ async function start() {
     console.log(`[Server] AI Forex Backend running on port ${PORT}`);
     console.log(`[Server] Health check → http://localhost:${PORT}/health`);
   });
+
+  // Start Telegram bot (non-fatal if token not set)
+  startBot();
 }
 
 start();

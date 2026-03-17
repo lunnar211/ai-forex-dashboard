@@ -1,7 +1,7 @@
 'use client';
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import { admin } from '../../services/api';
+import { auth } from '../../services/api';
 
 export default function AdminLogin() {
   const router = useRouter();
@@ -15,6 +15,8 @@ export default function AdminLogin() {
   useEffect(() => {
     if (router.query.reason === 'session_expired') {
       setNotice('Session expired. Please log in again.');
+    } else if (router.query.reason === 'not_admin') {
+      setNotice('Access denied. Admin privileges required.');
     }
   }, [router.query.reason]);
 
@@ -23,13 +25,34 @@ export default function AdminLogin() {
     setError('');
     setLoading(true);
     try {
-      const data = await admin.login(email, password);
-      // Store admin token in sessionStorage (not localStorage — more secure, clears on tab close)
-      sessionStorage.setItem('admin-token', data.token);
-      sessionStorage.setItem('admin-user', JSON.stringify(data.user));
-      router.replace('/admin/dashboard');
+      const data = await auth.login(email, password);
+
+      if (data.success && data.token) {
+        // Save token to localStorage
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('user', JSON.stringify(data.user));
+
+        // Check is_admin before redirecting
+        if (data.user?.is_admin) {
+          window.location.href = '/admin/dashboard';
+        } else {
+          setError('You do not have admin privileges.');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        }
+      } else {
+        setError('Login failed. Check credentials.');
+      }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      const apiErr = err as Error & { status?: number };
+      const msg = apiErr.message || 'Login failed';
+      if (msg.includes('blocked') || msg.includes('suspended')) {
+        setError('Your account has been blocked.');
+      } else if (msg.includes('not found') || msg.includes('Invalid') || msg.includes('incorrect')) {
+        setError('Email or password is incorrect.');
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }

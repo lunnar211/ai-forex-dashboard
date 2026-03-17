@@ -1,3 +1,14 @@
+export interface AdminUser {
+  id: number;
+  email: string;
+  name: string | null;
+  is_admin: boolean;
+  is_blocked: boolean;
+  is_restricted: boolean;
+  last_active: string | null;
+  created_at: string;
+}
+
 export type ForexSymbol = 'EUR/USD' | 'GBP/USD' | 'USD/JPY' | 'AUD/USD' | 'XAU/USD';
 export type Timeframe = '15min' | '1h' | '4h' | '1day';
 
