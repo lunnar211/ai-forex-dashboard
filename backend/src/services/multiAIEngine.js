@@ -8,28 +8,36 @@
  * consensus algorithm, and returns ONE final high-accuracy trading signal.
  *
  * Provider weights (must total 1.0):
- *   Groq        25%  – fast, reliable fundamentals (llama-3.3-70b-versatile)
+ *   Groq        30%  – fast, reliable fundamentals (llama-3.1-8b-instant)
  *   Gemini      25%  – strong pattern recognition (gemini-2.0-flash)
- *   Mistral     20%  – precise structured reasoning (mistral-small-latest)
- *   Cohere      15%  – broad contextual analysis (command-r)
- *   OpenRouter  15%  – additional signal diversity (llama-3.1-8b-instruct:free)
+ *   Mistral     25%  – precise structured reasoning (mistral-small-latest)
+ *   Cohere      10%  – broad contextual analysis (command-r)
+ *   OpenRouter  10%  – additional signal diversity (llama-3.1-8b-instruct:free)
  */
 
 const Groq                   = require('groq-sdk');
-const OpenAI                 = require('openai');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const axios                  = require('axios');
 const { buildMasterPrompt }  = require('./masterPrompt');
 const { getAllMarketData }    = require('./marketDataService');
 
+// ── Clean all keys on startup — remove accidental spaces ──────────────────────
+const ENV = {
+  GROQ_KEY:       (process.env.GROQ_API_KEY        || '').trim(),
+  GEMINI_KEY:     (process.env.GEMINI_API_KEY       || '').trim(),
+  MISTRAL_KEY:    (process.env.MISTRAL_API_KEY      || '').trim(),
+  COHERE_KEY:     (process.env.COHERE_API_KEY       || '').trim(),
+  OPENROUTER_KEY: (process.env.OPENROUTER_API_KEY   || '').trim(),
+};
+
 // ── Provider weights ─────────────────────────────────────────────────────────
-// Must total exactly 1.0: 0.25+0.25+0.20+0.15+0.15 = 1.00
+// Must total exactly 1.0: 0.30+0.25+0.25+0.10+0.10 = 1.00
 const WEIGHTS = {
-  groq:       0.25,
+  groq:       0.30,
   gemini:     0.25,
-  mistral:    0.20,
-  cohere:     0.15,
-  openrouter: 0.15,
+  mistral:    0.25,
+  cohere:     0.10,
+  openrouter: 0.10,
 };
 
 // ── Timeout wrapper ────────────────────────────────────────────────────────────
@@ -45,10 +53,10 @@ function withTimeout(promise, ms) {
 // ── Individual AI callers ──────────────────────────────────────────────────────
 
 async function callGroq(symbol, timeframe, systemPrompt) {
-  if (!process.env.GROQ_API_KEY) throw new Error('No GROQ_API_KEY');
-  const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  if (!ENV.GROQ_KEY) throw new Error('No GROQ_API_KEY');
+  const client = new Groq({ apiKey: ENV.GROQ_KEY });
   const res = await client.chat.completions.create({
-    model: 'llama-3.3-70b-versatile',
+    model: 'llama-3.1-8b-instant',
     max_tokens: 2000,
     messages: [
       { role: 'system', content: systemPrompt },
@@ -62,8 +70,8 @@ async function callGroq(symbol, timeframe, systemPrompt) {
 }
 
 async function callGemini(symbol, timeframe, systemPrompt) {
-  if (!process.env.GEMINI_API_KEY) throw new Error('No GEMINI_API_KEY');
-  const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  if (!ENV.GEMINI_KEY) throw new Error('No GEMINI_API_KEY');
+  const genAI = new GoogleGenerativeAI(ENV.GEMINI_KEY);
   const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
   const result = await model.generateContent(
     `${systemPrompt}\n\nAnalyse: Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`
@@ -72,49 +80,60 @@ async function callGemini(symbol, timeframe, systemPrompt) {
 }
 
 async function callMistral(symbol, timeframe, systemPrompt) {
-  if (!process.env.MISTRAL_API_KEY) throw new Error('No MISTRAL_API_KEY');
-  const client = new OpenAI({
-    apiKey: process.env.MISTRAL_API_KEY,
-    baseURL: 'https://api.mistral.ai/v1',
-  });
-  const res = await client.chat.completions.create({
-    model: 'mistral-small-latest',
-    max_tokens: 2000,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      {
-        role: 'user',
-        content: `Analyse: Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`,
-      },
-    ],
-  });
-  return parseJSON(res.choices[0].message.content, 'mistral');
-}
-
-async function callCohere(symbol, timeframe, systemPrompt) {
-  if (!process.env.COHERE_API_KEY) throw new Error('No COHERE_API_KEY');
+  if (!ENV.MISTRAL_KEY) throw new Error('No MISTRAL_API_KEY');
   const res = await axios.post(
-    'https://api.cohere.com/v1/chat',
+    'https://api.mistral.ai/v1/chat/completions',
     {
-      model: 'command-r',
-      preamble: systemPrompt,
-      message: `Analyse: Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`,
-      temperature: 0.3,
-      max_tokens: 2000,
+      model: 'mistral-small-latest',
+      max_tokens: 1500,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: `Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`,
+        },
+      ],
     },
     {
       headers: {
-        Authorization: `Bearer ${process.env.COHERE_API_KEY}`,
+        'Authorization': `Bearer ${ENV.MISTRAL_KEY}`,
         'Content-Type': 'application/json',
       },
       timeout: 30000,
     }
   );
-  return parseJSON(res.data?.text || '', 'cohere');
+  return parseJSON(res.data.choices[0].message.content, 'mistral');
+}
+
+async function callCohere(symbol, timeframe, systemPrompt) {
+  if (!ENV.COHERE_KEY) throw new Error('No COHERE_API_KEY');
+  const res = await axios.post(
+    'https://api.cohere.com/v2/chat',
+    {
+      model: 'command-r',
+      max_tokens: 1500,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        {
+          role: 'user',
+          content: `Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`,
+        },
+      ],
+    },
+    {
+      headers: {
+        'Authorization': `Bearer ${ENV.COHERE_KEY}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      timeout: 30000,
+    }
+  );
+  return parseJSON(res.data.message.content[0].text, 'cohere');
 }
 
 async function callOpenRouter(symbol, timeframe, systemPrompt) {
-  if (!process.env.OPENROUTER_API_KEY) throw new Error('No OPENROUTER_API_KEY');
+  if (!ENV.OPENROUTER_KEY) throw new Error('No OPENROUTER_API_KEY');
   const res = await axios.post(
     'https://openrouter.ai/api/v1/chat/completions',
     {
@@ -131,8 +150,10 @@ async function callOpenRouter(symbol, timeframe, systemPrompt) {
     },
     {
       headers: {
-        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${ENV.OPENROUTER_KEY}`,
         'Content-Type': 'application/json',
+        'HTTP-Referer': 'https://ai-forex-frontend.onrender.com',
+        'X-Title': 'ForexAI Terminal',
       },
       timeout: 30000,
     }
