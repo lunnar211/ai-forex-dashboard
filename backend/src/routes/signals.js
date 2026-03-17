@@ -44,29 +44,30 @@ router.get('/live', signalsRateLimiter, authMiddleware, async (req, res) => {
     }
   }
 
-  // Generate predictions for all symbols in parallel
-  const results = await Promise.allSettled(
-    VALID_SYMBOLS.map((symbol) =>
-      generateMultiAIPrediction(symbol, '1h').then((pred) => ({ symbol, ...pred }))
-    )
-  );
-
-  const signals = results.map((result, i) => {
-    if (result.status === 'fulfilled') {
-      return result.value;
+  // Generate predictions for all symbols sequentially to avoid Groq rate limits
+  const signals = [];
+  for (let i = 0; i < VALID_SYMBOLS.length; i++) {
+    const symbol = VALID_SYMBOLS[i];
+    try {
+      const pred = await generateMultiAIPrediction(symbol, '1h');
+      signals.push({ symbol, ...pred });
+    } catch (err) {
+      signals.push({
+        symbol,
+        direction: 'NEUTRAL',
+        confidence: 0,
+        entry_price: null,
+        stop_loss: null,
+        take_profit_1: null,
+        take_profit_2: null,
+        error: err.message || 'Generation failed',
+      });
     }
-    // On failure return a minimal placeholder so the array stays 12 items
-    return {
-      symbol: VALID_SYMBOLS[i],
-      direction: 'NEUTRAL',
-      confidence: 0,
-      entry_price: null,
-      stop_loss: null,
-      take_profit_1: null,
-      take_profit_2: null,
-      error: result.reason?.message || 'Generation failed',
-    };
-  });
+    // Wait 2 seconds between each pair to avoid provider rate limits
+    if (i < VALID_SYMBOLS.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
+  }
 
   const payload = { signals, generatedAt: new Date().toISOString() };
 
