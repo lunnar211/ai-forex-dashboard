@@ -1,5 +1,5 @@
 'use client';
-import { useState, FormEvent } from 'react';
+import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/router';
 import { admin } from '../../services/api';
 
@@ -10,6 +10,13 @@ export default function AdminLogin() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+
+  useEffect(() => {
+    if (router.query.reason === 'session_expired') {
+      setNotice('Session expired. Please log in again.');
+    }
+  }, [router.query.reason]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -48,6 +55,12 @@ export default function AdminLogin() {
         <div className="bg-[#1e293b] border border-[#334155] rounded-2xl p-8">
           <h2 className="text-lg font-semibold text-white mb-1">Admin Sign In</h2>
           <p className="text-sm text-[#64748b] mb-6">Restricted to authorized administrators only.</p>
+
+          {notice && (
+            <div className="mb-4 px-4 py-3 bg-yellow-900/30 border border-yellow-700 rounded-lg text-sm text-yellow-300">
+              {notice}
+            </div>
+          )}
 
           {error && (
             <div className="mb-4 px-4 py-3 bg-[#7f1d1d] border border-[#ef4444] rounded-lg text-sm text-[#fca5a5]">

@@ -327,7 +327,11 @@ export default function Platforms() {
   const [loadingPredict, setLoadingPredict] = useState(false);
   const [error, setError] = useState('');
   const [chartError, setChartError] = useState('');
-  const [aiProvider, setAiProvider] = useState<'auto' | 'dual' | 'claude' | 'groq'>('dual');
+  const [aiProvider, setAiProvider] = useState<'multi' | 'auto' | 'dual' | 'claude' | 'groq'>('multi');
+  const [liveQuote, setLiveQuote] = useState<{
+    current_price: number; open: number; high: number; low: number;
+    change: number; change_pct: string; previous_close: number;
+  } | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -372,6 +376,29 @@ export default function Platforms() {
     const id = setInterval(fetchLivePrice, 30_000);
     return () => clearInterval(id);
   }, [mounted, isAuthenticated, fetchLivePrice, selectedSymbol]);
+
+  // Fetch enriched Finnhub quote (H/L/change%) every 30 s
+  useEffect(() => {
+    if (!mounted || !isAuthenticated || !selectedSymbol) return;
+    const fetchQuote = async () => {
+      try {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        const res = await fetch(`/api/market/quote?symbol=${encodeURIComponent(selectedSymbol)}`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) setLiveQuote(json.data);
+        }
+      } catch {
+        // non-fatal — ticker is optional enrichment
+      }
+    };
+    fetchQuote();
+    setLiveQuote(null);
+    const id = setInterval(fetchQuote, 30_000);
+    return () => clearInterval(id);
+  }, [mounted, isAuthenticated, selectedSymbol]);
 
   async function handlePredict() {
     if (!selectedSymbol) return;
@@ -564,10 +591,30 @@ export default function Platforms() {
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-[#475569] mt-0.5">
-                        <span className={clsx('font-medium', colors.text)}>{selectedCategory.name}</span>
-                        {' · '}AI-powered analysis
-                      </p>
+                      {/* Finnhub live quote ticker */}
+                      {liveQuote ? (
+                        <div className="flex flex-wrap items-center gap-3 mt-1">
+                          <span className={clsx(
+                            'text-sm font-bold',
+                            Number(liveQuote.change) >= 0 ? 'text-emerald-400' : 'text-red-400'
+                          )}>
+                            {Number(liveQuote.change) >= 0 ? '▲' : '▼'}{' '}
+                            {Math.abs(Number(liveQuote.change)).toFixed(5)}{' '}
+                            ({Number(liveQuote.change_pct) >= 0 ? '+' : ''}{liveQuote.change_pct}%)
+                          </span>
+                          <span className="text-xs text-[#475569]">H: <span className="text-[#94a3b8]">{liveQuote.high}</span></span>
+                          <span className="text-xs text-[#475569]">L: <span className="text-[#94a3b8]">{liveQuote.low}</span></span>
+                          <span className="text-xs text-[#475569]">O: <span className="text-[#94a3b8]">{liveQuote.open}</span></span>
+                          <span className="px-1.5 py-0.5 bg-blue-900/30 text-blue-400 text-[10px] rounded font-semibold uppercase tracking-wide">
+                            Finnhub Live
+                          </span>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-[#475569] mt-0.5">
+                          <span className={clsx('font-medium', colors.text)}>{selectedCategory.name}</span>
+                          {' · '}AI-powered analysis
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-1 bg-[#1e293b] border border-[#334155] rounded-xl p-1">
@@ -598,15 +645,17 @@ export default function Platforms() {
                         </div>
                       )}
                     </div>
-                    {chartError ? (
-                      <div className="p-6 text-sm text-red-400">{chartError}</div>
-                    ) : (
-                      <ChartPanel
-                        candles={candles}
-                        symbol={selectedSymbol}
-                        timeframe={timeframe}
-                      />
-                    )}
+                    <div style={{ height: 400 }}>
+                      {chartError ? (
+                        <div className="w-full h-full flex items-center justify-center p-6 text-sm text-red-400">{chartError}</div>
+                      ) : (
+                        <ChartPanel
+                          candles={candles}
+                          symbol={selectedSymbol}
+                          timeframe={timeframe}
+                        />
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex justify-center">
@@ -614,10 +663,11 @@ export default function Platforms() {
                       {/* AI Provider selector */}
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-[#94a3b8] font-medium">AI Engine:</span>
-                        <div className="flex items-center gap-1 bg-[#0f172a] border border-[#334155] rounded-xl p-1">
+                        <div className="flex items-center gap-1 bg-[#0f172a] border border-[#334155] rounded-xl p-1 flex-wrap justify-center">
                           {([
-                            { value: 'dual',   label: '⚡ Dual AI',  title: 'Claude + Groq combined (highest accuracy)' },
-                            { value: 'claude', label: '🧠 Claude',   title: 'Anthropic Claude — deep quantitative analysis' },
+                            { value: 'multi',  label: '🧠 Multi-AI', title: 'All 5 AI models — weighted consensus (highest accuracy)' },
+                            { value: 'dual',   label: '⚡ Dual AI',  title: 'Claude + Groq combined' },
+                            { value: 'claude', label: '🤖 Claude',   title: 'Anthropic Claude — deep quantitative analysis' },
                             { value: 'groq',   label: '🚀 Groq',     title: 'Groq LLaMA — fast market analysis' },
                             { value: 'auto',   label: '🔄 Auto',     title: 'Automatically try all available providers' },
                           ] as const).map((opt) => (
@@ -637,6 +687,11 @@ export default function Platforms() {
                           ))}
                         </div>
                       </div>
+                      {aiProvider === 'multi' && (
+                        <p className="text-xs text-indigo-400/80 text-center max-w-xs">
+                          Queries Claude · OpenAI · Groq · Gemini · OpenRouter in parallel, then combines via weighted vote.
+                        </p>
+                      )}
 
                       {/* Predict button */}
                       <button
@@ -650,7 +705,7 @@ export default function Platforms() {
                         {loadingPredict ? (
                           <>
                             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            Analysing…
+                            {aiProvider === 'multi' ? 'Querying 5 AI models…' : 'Analysing…'}
                           </>
                         ) : (
                           <>
@@ -685,6 +740,45 @@ export default function Platforms() {
                         loading={false}
                         symbol={selectedSymbol}
                       />
+                    )}
+
+                    {/* Multi-AI consensus breakdown panel */}
+                    {prediction?.individual_results_list && prediction.individual_results_list.length > 0 && (
+                      <div className="bg-[#1e293b] border border-[#334155] rounded-2xl p-5">
+                        <div className="flex items-center gap-2 mb-4">
+                          <span className="text-sm font-semibold text-white">🧠 AI Provider Votes</span>
+                          {prediction.all_agreed && (
+                            <span className="text-xs px-2 py-0.5 bg-green-900/40 border border-green-700 text-green-400 rounded-full">All Agree ✓</span>
+                          )}
+                          {prediction.all_agreed === false && (
+                            <span className="text-xs px-2 py-0.5 bg-yellow-900/40 border border-yellow-700 text-yellow-400 rounded-full">Mixed Signals</span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {prediction.individual_results_list.map((r) => (
+                            <div key={r.provider} className="flex items-center justify-between bg-[#0f172a] rounded-xl px-4 py-3 border border-[#334155]">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-mono text-[#94a3b8] capitalize">{r.provider}</span>
+                                <span className="text-[10px] text-[#475569]">{r.weight}</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className={clsx(
+                                  'text-xs font-bold',
+                                  r.direction === 'BUY'  ? 'text-green-400' :
+                                  r.direction === 'SELL' ? 'text-red-400'   : 'text-yellow-400'
+                                )}>{r.direction}</span>
+                                <span className="text-[10px] text-[#64748b]">{r.confidence}%</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {prediction.failed_providers && prediction.failed_providers.length > 0 && (
+                          <p className="mt-3 text-xs text-[#475569]">
+                            Unavailable: {prediction.failed_providers.map((f) => f.provider).join(', ')}
+                          </p>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>

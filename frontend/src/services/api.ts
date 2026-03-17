@@ -37,7 +37,10 @@ apiClient.interceptors.response.use(
       error.response?.data?.error ||
       error.message ||
       'An unexpected error occurred';
-    return Promise.reject(new Error(message));
+    const status = error.response?.status;
+    const err = new Error(message) as Error & { status?: number };
+    err.status = status;
+    return Promise.reject(err);
   }
 );
 
@@ -54,6 +57,11 @@ export const activity = {
     apiClient.post('/activity', data).catch(() => {
       // activity tracking is non-critical — silently ignore failures
     }),
+
+  ping: () =>
+    apiClient.post('/activity/ping').catch(() => {
+      // ping is non-critical — silently ignore failures
+    }),
 };
 
 export const auth = {
@@ -69,6 +77,21 @@ export const auth = {
     apiClient.post('/auth/logout').catch(() => {
       // logout is best-effort — ignore network failures
     }),
+
+  sendVerify: (email: string) =>
+    apiClient.post('/auth/send-verify', { email }).then((r) => r.data),
+
+  verifyEmail: (email: string, code: string) =>
+    apiClient.post('/auth/verify-email', { email, code }).then((r) => r.data),
+
+  forgotPassword: (email: string) =>
+    apiClient.post('/auth/forgot-password', { email }).then((r) => r.data),
+
+  resetPassword: (email: string, code: string, newPassword: string) =>
+    apiClient.post('/auth/reset-password', { email, code, newPassword }).then((r) => r.data),
+
+  cookieConsent: (accepted: boolean) =>
+    apiClient.post('/auth/cookies-consent', { accepted }).then((r) => r.data),
 };
 
 export const admin = {

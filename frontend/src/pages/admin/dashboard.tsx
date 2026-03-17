@@ -167,6 +167,18 @@ export default function AdminDashboard() {
   const [blockingId, setBlockingId] = useState<number | null>(null);
   const [restrictingId, setRestrictingId] = useState<number | null>(null);
 
+  // Helper: handle API auth errors (401/403) by redirecting to admin login
+  const handleAuthError = useCallback((err: unknown) => {
+    const apiErr = err as Error & { status?: number };
+    if (apiErr.status === 401 || apiErr.status === 403) {
+      sessionStorage.removeItem('admin-token');
+      sessionStorage.removeItem('admin-user');
+      router.replace('/admin?reason=session_expired');
+      return true;
+    }
+    return false;
+  }, [router]);
+
   useEffect(() => {
     const storedToken = sessionStorage.getItem('admin-token');
     const storedUser = sessionStorage.getItem('admin-user');
@@ -188,11 +200,13 @@ export default function AdminDashboard() {
       const data = await admin.listUsers(token);
       setUsers(data.users);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to load users');
+      if (!handleAuthError(err)) {
+        setError(err instanceof Error ? err.message : 'Failed to load users');
+      }
     } finally {
       setLoadingUsers(false);
     }
-  }, [token]);
+  }, [token, handleAuthError]);
 
   const loadStats = useCallback(async () => {
     if (!token) return;
