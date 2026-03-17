@@ -39,6 +39,10 @@ const adminRateLimiter = rateLimit({
 });
 
 router.post('/login', loginRateLimiter, adminLogin);
+router.get('/verify', adminRateLimiter, adminAuthMiddleware, (req, res) => {
+  res.json({ success: true, user: req.user });
+});
+
 router.get('/users', adminRateLimiter, adminAuthMiddleware, listUsers);
 router.post('/users', adminRateLimiter, adminAuthMiddleware, createUser);
 router.get('/users/:id', adminRateLimiter, adminAuthMiddleware, getUserDetails);

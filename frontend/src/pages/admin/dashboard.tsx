@@ -171,8 +171,8 @@ export default function AdminDashboard() {
   const handleAuthError = useCallback((err: unknown) => {
     const apiErr = err as Error & { status?: number };
     if (apiErr.status === 401 || apiErr.status === 403) {
-      sessionStorage.removeItem('admin-token');
-      sessionStorage.removeItem('admin-user');
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
       router.replace('/admin?reason=session_expired');
       return true;
     }
@@ -180,16 +180,34 @@ export default function AdminDashboard() {
   }, [router]);
 
   useEffect(() => {
-    const storedToken = sessionStorage.getItem('admin-token');
-    const storedUser = sessionStorage.getItem('admin-user');
+    const storedToken = localStorage.getItem('token');
+    const storedUser = localStorage.getItem('user');
     if (!storedToken) {
-      router.replace('/admin');
+      router.replace('/admin?reason=session_expired');
       return;
     }
-    setToken(storedToken);
+
+    let parsedUser: { is_admin?: boolean; email?: string; name?: string } = {};
     if (storedUser) {
-      try { setAdminUser(JSON.parse(storedUser)); } catch { /* ignore */ }
+      try { parsedUser = JSON.parse(storedUser); } catch { /* ignore */ }
     }
+
+    if (!parsedUser?.is_admin) {
+      router.replace('/admin?reason=not_admin');
+      return;
+    }
+
+    setToken(storedToken);
+    setAdminUser(parsedUser as { email: string; name: string });
+
+    // Verify token is still valid with backend (async — runs in parallel with
+    // data loading; if it fails, both the verify and subsequent 401s from API
+    // calls will trigger a redirect to the login page).
+    admin.verify(storedToken).catch(() => {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      router.replace('/admin?reason=session_expired');
+    });
   }, [router]);
 
   const loadUsers = useCallback(async () => {
@@ -397,8 +415,8 @@ export default function AdminDashboard() {
   }
 
   function handleLogout() {
-    sessionStorage.removeItem('admin-token');
-    sessionStorage.removeItem('admin-user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     router.replace('/admin');
   }
 

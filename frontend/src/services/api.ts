@@ -98,6 +98,9 @@ export const admin = {
   login: (email: string, password: string) =>
     apiClient.post('/admin/login', { email, password }).then((r) => r.data),
 
+  verify: (token: string) =>
+    apiClient.get('/admin/verify', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data),
+
   listUsers: (token: string) =>
     apiClient.get('/admin/users', { headers: { Authorization: `Bearer ${token}` } }).then((r) => r.data),
 

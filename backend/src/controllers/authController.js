@@ -139,9 +139,10 @@ async function login(req, res) {
     ).catch((err) => console.error('[Auth] Failed to update last_active:', err.message));
 
     return res.json({
+      success: true,
       message: 'Login successful.',
       token,
-      user: { id: user.id, email: user.email, name: user.name, isAdmin: Boolean(user.is_admin), createdAt: user.created_at },
+      user: { id: user.id, email: user.email, name: user.name, is_admin: user.is_admin, isAdmin: Boolean(user.is_admin), createdAt: user.created_at },
     });
   } catch (err) {
     console.error('[AuthController] login error:', err.message);
