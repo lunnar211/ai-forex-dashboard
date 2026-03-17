@@ -158,7 +158,25 @@ export default function Sidebar() {
             );
           })}
 
-          {/* Admin panel link — only for admins */}
+          {/* Ko-fi support link */}
+          <div className="px-3 pt-2">
+            <a
+              href="https://ko-fi.com/dipeshkarki"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150"
+              style={{
+                background: 'linear-gradient(135deg, rgba(255,94,91,0.13), rgba(255,94,91,0.07))',
+                border: '1px solid rgba(255,94,91,0.27)',
+                color: '#ff5e5b',
+                textDecoration: 'none',
+              }}
+              onClick={() => setOpen(false)}
+            >
+              <span>☕</span>
+              <span className="flex-1">Support Us on Ko-fi</span>
+            </a>
+          </div>
           {user?.isAdmin && (
             <Link
               href="/admin/dashboard"

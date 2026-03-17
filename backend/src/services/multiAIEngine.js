@@ -7,428 +7,378 @@
  * simultaneously, collects all responses, runs a weighted mathematical
  * consensus algorithm, and returns ONE final high-accuracy trading signal.
  *
- * Provider weights (must total 1.0):
- *   Groq        30%  – fast, reliable fundamentals (llama-3.1-8b-instant)
- *   Gemini      25%  – strong pattern recognition (gemini-2.0-flash)
- *   Mistral     25%  – precise structured reasoning (mistral-small-latest)
- *   Cohere      10%  – broad contextual analysis (command-r)
- *   OpenRouter  10%  – additional signal diversity (llama-3.1-8b-instruct:free)
+ * Provider weights (total = 1.0):
+ *   Groq         30%  – fast, reliable fundamentals (llama-3.1-8b-instant)
+ *   HuggingFace  25%  – Qwen2.5-7B, excellent JSON output
+ *   Gemini       20%  – strong pattern recognition (gemini-1.5-flash)
+ *   Mistral      15%  – precise structured reasoning (open-mistral-7b)
+ *   OpenRouter   10%  – additional signal diversity (phi-3-mini free)
  */
 
 const Groq                   = require('groq-sdk');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 const axios                  = require('axios');
-const { buildMasterPrompt }  = require('./masterPrompt');
 const { getAllMarketData }    = require('./marketDataService');
 
-// ── Clean all keys on startup — remove accidental spaces ──────────────────────
-const ENV = {
-  GROQ_KEY:       (process.env.GROQ_API_KEY        || '').trim(),
-  GEMINI_KEY:     (process.env.GEMINI_API_KEY       || '').trim(),
-  MISTRAL_KEY:    (process.env.MISTRAL_API_KEY      || '').trim(),
-  COHERE_KEY:     (process.env.COHERE_API_KEY       || '').trim(),
-  OPENROUTER_KEY: (process.env.OPENROUTER_API_KEY   || '').trim(),
-};
-
-// ── Provider weights ─────────────────────────────────────────────────────────
-// Must total exactly 1.0: 0.30+0.25+0.25+0.10+0.10 = 1.00
+// ── Provider weights (total = 1.0) ────────────────────────────────────────────
 const WEIGHTS = {
-  groq:       0.30,
-  gemini:     0.25,
-  mistral:    0.25,
-  cohere:     0.10,
-  openrouter: 0.10,
+  groq:        0.30,
+  huggingface: 0.25,
+  gemini:      0.20,
+  mistral:     0.15,
+  openrouter:  0.10,
 };
 
-// ── Timeout wrapper ────────────────────────────────────────────────────────────
-function withTimeout(promise, ms) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) =>
-      setTimeout(() => reject(new Error(`Provider timed out after ${ms}ms`)), ms)
-    ),
-  ]);
+// ── JSON parser with markdown-fence cleanup ────────────────────────────────────
+function parseJSON(raw, provider) {
+  try {
+    const clean = (raw || '').trim()
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/```\s*$/i, '')
+      .trim();
+    const parsed = JSON.parse(clean);
+    return { provider, data: parsed, error: null };
+  } catch {
+    // Try to find JSON object in response
+    const match = (raw || '').match(/\{[\s\S]*\}/);
+    if (match) {
+      try {
+        return { provider, data: JSON.parse(match[0]), error: null };
+      } catch { /* fall through */ }
+    }
+    return { provider, data: null, error: `JSON parse failed from ${provider}` };
+  }
 }
 
-// ── Individual AI callers ──────────────────────────────────────────────────────
+// ── Map direction string to numeric score ──────────────────────────────────────
+function dirScore(d) {
+  const s = (d || '').toString().toUpperCase();
+  if (s === 'BUY')  return 1;
+  if (s === 'SELL') return -1;
+  return 0;
+}
 
-async function callGroq(symbol, timeframe, systemPrompt) {
-  if (!ENV.GROQ_KEY) throw new Error('No GROQ_API_KEY');
-  const client = new Groq({ apiKey: ENV.GROQ_KEY });
+// ── Short prompt for fast models to avoid timeout ─────────────────────────────
+function buildShortPrompt(symbol, timeframe, marketData) {
+  const quote = marketData?.quote;
+  const price = quote?.current_price || 'unknown';
+  const high  = quote?.high          || 'unknown';
+  const low   = quote?.low           || 'unknown';
+  const prev  = quote?.previous_close || 'unknown';
+
+  return `You are an expert forex trader and quantitative analyst.
+
+LIVE DATA:
+Symbol: ${symbol}
+Timeframe: ${timeframe}
+Current Price: ${price}
+Today High: ${high}
+Today Low: ${low}
+Previous Close: ${prev}
+Time: ${new Date().toISOString()}
+
+Analyse using: RSI, MACD, EMA stack, Bollinger Bands, ATR, Fibonacci, Support/Resistance, Smart Money Concepts.
+
+Rules:
+- Max 2% account risk per trade
+- Min 1:3 risk reward ratio
+- Only trade if confluence >= 58%
+- Stop Loss = ATR x 1.5 from entry
+- TP1 = ATR x 2.5, TP2 = ATR x 4.5
+
+Return ONLY this JSON (no markdown, no text outside JSON):
+{
+  "setup": true,
+  "direction": "BUY",
+  "entry_price": "1.0854",
+  "stop_loss": "1.0821",
+  "take_profit_1": "1.0920",
+  "take_profit_2": "1.0987",
+  "confidence": 78,
+  "probability_of_success": 72,
+  "risk_reward_ratio": 2.0,
+  "confluence_score": 68,
+  "trend": "UPTREND",
+  "market_sentiment": "BULLISH",
+  "strategy_used": "EMA + RSI + SMC",
+  "reasoning": "Price bouncing off 61.8% Fibonacci with RSI divergence"
+}
+
+If no valid setup return:
+{"setup": false, "direction": "NEUTRAL", "confidence": 0, "reason": "Low confluence"}`;
+}
+
+// ── PROVIDER 1: Groq (fastest — use small fast model) ─────────────────────────
+async function callGroq(symbol, timeframe, marketData) {
+  if (!process.env.GROQ_API_KEY) throw new Error('No GROQ_API_KEY');
+  const client = new Groq({ apiKey: process.env.GROQ_API_KEY.trim() });
+  const prompt = buildShortPrompt(symbol, timeframe, marketData);
+
   const res = await client.chat.completions.create({
-    model: 'llama-3.1-8b-instant',
-    max_tokens: 2000,
+    model:      'llama-3.1-8b-instant',
+    max_tokens: 500,
     messages: [
-      { role: 'system', content: systemPrompt },
-      {
-        role: 'user',
-        content: `Analyse: Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`,
-      },
+      { role: 'system', content: 'You are a forex analyst. Return JSON only.' },
+      { role: 'user',   content: prompt },
     ],
   });
   return parseJSON(res.choices[0].message.content, 'groq');
 }
 
-async function callGemini(symbol, timeframe, systemPrompt) {
-  if (!ENV.GEMINI_KEY) throw new Error('No GEMINI_API_KEY');
-  const genAI = new GoogleGenerativeAI(ENV.GEMINI_KEY);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-  const result = await model.generateContent(
-    `${systemPrompt}\n\nAnalyse: Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`
+// ── PROVIDER 2: HuggingFace (Qwen2.5-7B — best free model) ───────────────────
+async function callHuggingFace(symbol, timeframe, marketData) {
+  if (!process.env.HUGGINGFACE_API_KEY) throw new Error('No HUGGINGFACE_API_KEY');
+  const key    = process.env.HUGGINGFACE_API_KEY.trim();
+  const prompt = buildShortPrompt(symbol, timeframe, marketData);
+
+  const res = await axios.post(
+    'https://api-inference.huggingface.co/models/Qwen/Qwen2.5-7B-Instruct/v1/chat/completions',
+    {
+      model: 'Qwen/Qwen2.5-7B-Instruct',
+      messages: [
+        { role: 'system', content: 'You are a forex analyst. Return JSON only. No markdown.' },
+        { role: 'user',   content: prompt },
+      ],
+      max_tokens: 500,
+      stream: false,
+    },
+    {
+      headers: {
+        'Authorization': `Bearer ${key}`,
+        'Content-Type':  'application/json',
+      },
+      timeout: 25000,
+    }
   );
+
+  const content = res.data?.choices?.[0]?.message?.content || '';
+  return parseJSON(content, 'huggingface');
+}
+
+// ── PROVIDER 3: Gemini (gemini-1.5-flash — avoids 429 from flash-2.0) ────────
+async function callGemini(symbol, timeframe, marketData) {
+  if (!process.env.GEMINI_API_KEY) throw new Error('No GEMINI_API_KEY');
+  const genAI  = new GoogleGenerativeAI(process.env.GEMINI_API_KEY.trim());
+  const model  = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const prompt = buildShortPrompt(symbol, timeframe, marketData);
+
+  const result = await model.generateContent(prompt);
   return parseJSON(result.response.text(), 'gemini');
 }
 
-async function callMistral(symbol, timeframe, systemPrompt) {
-  if (!ENV.MISTRAL_KEY) throw new Error('No MISTRAL_API_KEY');
+// ── PROVIDER 4: Mistral (open-mistral-7b free tier) ──────────────────────────
+async function callMistral(symbol, timeframe, marketData) {
+  if (!process.env.MISTRAL_API_KEY) throw new Error('No MISTRAL_API_KEY');
+  const key    = process.env.MISTRAL_API_KEY.trim();
+  const prompt = buildShortPrompt(symbol, timeframe, marketData);
+
   const res = await axios.post(
     'https://api.mistral.ai/v1/chat/completions',
     {
-      model: 'mistral-small-latest',
-      max_tokens: 1500,
+      model:      'open-mistral-7b',
+      max_tokens: 500,
       messages: [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: `Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`,
-        },
+        { role: 'system', content: 'You are a forex analyst. Return JSON only.' },
+        { role: 'user',   content: prompt },
       ],
     },
     {
       headers: {
-        'Authorization': `Bearer ${ENV.MISTRAL_KEY}`,
-        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${key}`,
+        'Content-Type':  'application/json',
       },
-      timeout: 30000,
+      timeout: 20000,
     }
   );
   return parseJSON(res.data.choices[0].message.content, 'mistral');
 }
 
-async function callCohere(symbol, timeframe, systemPrompt) {
-  if (!ENV.COHERE_KEY) throw new Error('No COHERE_API_KEY');
-  const res = await axios.post(
-    'https://api.cohere.com/v2/chat',
-    {
-      model: 'command-r',
-      max_tokens: 1500,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: `Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`,
-        },
-      ],
-    },
-    {
-      headers: {
-        'Authorization': `Bearer ${ENV.COHERE_KEY}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      timeout: 30000,
-    }
-  );
-  return parseJSON(res.data.message.content[0].text, 'cohere');
-}
+// ── PROVIDER 5: OpenRouter (correct free model) ───────────────────────────────
+async function callOpenRouter(symbol, timeframe, marketData) {
+  if (!process.env.OPENROUTER_API_KEY) throw new Error('No OPENROUTER_API_KEY');
+  const key    = process.env.OPENROUTER_API_KEY.trim();
+  const prompt = buildShortPrompt(symbol, timeframe, marketData);
 
-async function callOpenRouter(symbol, timeframe, systemPrompt) {
-  if (!ENV.OPENROUTER_KEY) throw new Error('No OPENROUTER_API_KEY');
   const res = await axios.post(
     'https://openrouter.ai/api/v1/chat/completions',
     {
-      // Free-tier model specified in deployment configuration
-      model: 'meta-llama/llama-3.1-8b-instruct:free',
-      max_tokens: 2000,
+      model:      'microsoft/phi-3-mini-128k-instruct:free',
+      max_tokens: 500,
       messages: [
-        { role: 'system', content: systemPrompt },
-        {
-          role: 'user',
-          content: `Analyse: Symbol=${symbol} Timeframe=${timeframe} Time=${new Date().toISOString()} Return JSON only.`,
-        },
+        { role: 'system', content: 'You are a forex analyst. Return JSON only.' },
+        { role: 'user',   content: prompt },
       ],
     },
     {
       headers: {
-        'Authorization': `Bearer ${ENV.OPENROUTER_KEY}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://ai-forex-frontend.onrender.com',
-        'X-Title': 'ForexAI Terminal',
+        'Authorization':  `Bearer ${key}`,
+        'Content-Type':   'application/json',
+        'HTTP-Referer':   'https://ai-forex-frontend.onrender.com',
+        'X-Title':        'ForexAI Terminal',
       },
-      timeout: 30000,
+      timeout: 20000,
     }
   );
   return parseJSON(res.data.choices[0].message.content, 'openrouter');
 }
 
-// ── JSON parser with markdown-fence cleanup ────────────────────────────────────
-function parseJSON(raw, provider) {
-  try {
-    const clean = raw
-      .trim()
-      .replace(/^```json\s*/i, '')
-      .replace(/^```\s*/i, '')
-      .replace(/```\s*$/i, '')
-      .trim();
-    return { provider, data: JSON.parse(clean), error: null };
-  } catch {
-    return { provider, data: null, error: `JSON parse failed: ${raw.slice(0, 120)}` };
-  }
-}
-
-// ── Map direction string to numeric score ──────────────────────────────────────
-function dirScore(direction) {
-  if (!direction) return 0;
-  const d = direction.toString().toUpperCase();
-  if (d === 'BUY')  return 1;
-  if (d === 'SELL') return -1;
-  return 0;
-}
-
-// ── Helper: drill into a nested path like "indicators.rsi.signal" ─────────────
-function getPath(obj, path) {
-  return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
-}
-
-// ── Count indicator votes across providers ────────────────────────────────────
-function countVotes(results, path) {
-  const votes = { BUY: 0, SELL: 0, NEUTRAL: 0 };
-  for (const r of results) {
-    const val = getPath(r.data, path);
-    if (val) {
-      const key = val.toString().toUpperCase();
-      votes[key] = (votes[key] || 0) + 1;
-    }
-  }
-  return votes;
-}
-
 // ── Weighted consensus algorithm ───────────────────────────────────────────────
 function buildConsensus(results, symbol, timeframe) {
-  const valid   = results.filter((r) => r.data && r.data.setup === true && r.data.direction);
-  const noSetup = results.filter((r) => r.data && r.data.setup === false);
-  const failed  = results.filter((r) => r.error || !r.data);
+  const valid  = results.filter(r => r.data && r.data.direction &&
+    r.data.direction !== 'NEUTRAL' && r.data.direction !== 'HOLD');
+  const failed = results.filter(r => r.error || !r.data);
 
-  console.log(
-    `[MultiAI] ${symbol}/${timeframe} — valid: ${valid.length} | no_setup: ${noSetup.length} | failed: ${failed.length}`
-  );
+  console.log(`[MultiAI] ${symbol} ${timeframe}: Valid=${valid.length} Failed=${failed.length}`);
 
-  // If majority say no setup, respect the caution
-  if (noSetup.length > valid.length) {
-    const sample = noSetup[0]?.data;
+  // If no valid signals → return clean NEUTRAL (not error text)
+  if (valid.length === 0) {
     return {
-      setup:         false,
-      market:        symbol,
-      timeframe,
-      reason:        `Majority of AI providers (${noSetup.length}/${results.length}) found no valid trade setup. ${sample?.reason || ''}`.trim(),
-      market_sentiment: sample?.market_sentiment || 'NEUTRAL',
-      next_level_to_watch: sample?.next_level_to_watch || '',
-      providers_responded: results.map((r) => ({
-        provider: r.provider,
-        status:   r.error ? 'failed' : r.data?.setup ? 'signal' : 'no_setup',
-      })),
+      setup:             false,
+      direction:         'NEUTRAL',
+      confidence:        0,
+      entry_price:       null,
+      stop_loss:         null,
+      take_profit_1:     null,
+      take_profit_2:     null,
+      risk_reward_ratio: null,
+      confluence_score:  0,
+      trend:             'RANGING',
+      market_sentiment:  'NEUTRAL',
+      providers_count:   0,
+      reason:            'No clear trade setup found. Market conditions unclear.',
+      individual_results: [],
+      failed_providers:  failed.map(r => r.provider),
     };
   }
 
-  if (valid.length === 0) {
-    // All failed or no data — nothing to build from
-    const errMsg = failed.map((r) => `${r.provider}: ${r.error}`).join('; ');
-    throw new Error(`No AI provider returned a valid signal. ${errMsg}`);
-  }
-
-  // ── Weighted direction + confidence accumulation ───────────────────────────
   let weightedScore = 0;
-  let totalWeight = 0;
-  let weightedConfidence = 0;
-  let weightedProbability = 0;
-  let weightedConfluence = 0;
+  let weightedConf  = 0;
+  let weightedProb  = 0;
+  let totalWeight   = 0;
 
   for (const r of valid) {
-    const w = WEIGHTS[r.provider] ?? 0.10;
+    const w    = WEIGHTS[r.provider] || 0.10;
     const conf = Number(r.data.confidence) || 50;
-    const score = dirScore(r.data.direction);
-
-    weightedScore += score * w * conf;
-    weightedConfidence += conf * w;
-    weightedProbability += (Number(r.data.probability_of_success) || 50) * w;
-    weightedConfluence += (Number(r.data.confluence_score) || 50) * w;
-    totalWeight += w;
+    weightedScore += dirScore(r.data.direction) * w * conf;
+    weightedConf  += conf * w;
+    weightedProb  += (Number(r.data.probability_of_success) || 50) * w;
+    totalWeight   += w;
   }
 
   if (totalWeight > 0) {
-    weightedConfidence /= totalWeight;
-    weightedProbability /= totalWeight;
-    weightedConfluence /= totalWeight;
+    weightedConf /= totalWeight;
+    weightedProb /= totalWeight;
   }
 
-  // ── Final direction decision ───────────────────────────────────────────────
-  let finalDirection;
-  if (weightedScore > 8) finalDirection = 'BUY';
-  else if (weightedScore < -8) finalDirection = 'SELL';
-  else                         finalDirection = 'NEUTRAL';
+  let direction;
+  if (weightedScore > 5)       direction = 'BUY';
+  else if (weightedScore < -5) direction = 'SELL';
+  else                         direction = 'NEUTRAL';
 
-  // Agreement bonus / penalty
-  const allAgree = valid.every((r) => r.data.direction === valid[0].data.direction);
-  if (allAgree && valid.length >= 2) {
-    weightedConfidence = Math.min(99, weightedConfidence + 12);
-  } else if (!allAgree) {
-    weightedConfidence = Math.max(10, weightedConfidence - 15);
-  }
+  const allAgree = valid.every(r => r.data.direction === valid[0].data.direction);
+  if (allAgree && valid.length >= 2) weightedConf = Math.min(99, weightedConf + 12);
+  if (!allAgree)                     weightedConf = Math.max(10, weightedConf - 8);
 
-  // ── Best provider — used for price levels ─────────────────────────────────
-  const best = [...valid].sort(
-    (a, b) => (Number(b.data.confidence) || 0) - (Number(a.data.confidence) || 0)
-  )[0];
+  // Best result = highest confidence with valid prices
+  const best = [...valid]
+    .filter(r => r.data.entry_price && r.data.stop_loss)
+    .sort((a, b) => (Number(b.data.confidence) || 0) - (Number(a.data.confidence) || 0))[0]
+    || valid[0];
 
-  // ── Indicator consensus votes ──────────────────────────────────────────────
-  const indicatorVotes = {
-    ema_stack: countVotes(valid, 'indicators.ema_stack.signal'),
-    rsi:       countVotes(valid, 'indicators.rsi.signal'),
-    macd:      countVotes(valid, 'indicators.macd.signal'),
-    bollinger: countVotes(valid, 'indicators.bollinger.signal'),
-    fibonacci: countVotes(valid, 'indicators.fibonacci.signal'),
-    z_score:   countVotes(valid, 'indicators.z_score.signal'),
-  };
-
-  const consensusConf = Math.round(weightedConfidence);
-  const reasoning = allAgree
-    ? `All ${valid.length} AI models agree: ${finalDirection}. Average confidence ${consensusConf}%. Confluence score ${Math.round(weightedConfluence)}%. ${best.data.reasoning || ''}`.trim()
-    : `${valid.length} AI models analysed. Weighted consensus: ${finalDirection}. Models disagreed — confidence reduced. Best signal from ${best.provider} at ${best.data.confidence}% confidence. Trade with caution.`;
+  const consensusConf = Math.round(weightedConf);
 
   return {
-    setup: true,
-    market: symbol,
-    timeframe,
-    direction: finalDirection,
-    confidence: consensusConf,
-    probability_of_success: Math.round(weightedProbability),
-    confluence_score: Math.round(weightedConfluence),
-    entry_price: best.data.entry_price,
-    stop_loss: best.data.stop_loss,
-    take_profit_1: best.data.take_profit_1,
-    take_profit_2: best.data.take_profit_2,
-    risk_reward_ratio: best.data.risk_reward_ratio,
-    kelly_position_size: best.data.kelly_position_size,
-    max_account_risk: '2%',
-    trend: best.data.trend,
-    market_sentiment: best.data.market_sentiment,
-    strategy_used: best.data.strategy_used,
-    all_agreed: allAgree,
-    providers_count: valid.length,
-    indicator_votes: indicatorVotes,
-    individual_results: valid.map((r) => ({
-      provider: r.provider,
-      direction: r.data.direction,
+    setup:              true,
+    direction,
+    confidence:         consensusConf,
+    probability_of_success: Math.round(weightedProb),
+    confluence_score:   Math.round(best.data.confluence_score || weightedConf),
+    entry_price:        best.data.entry_price   || null,
+    stop_loss:          best.data.stop_loss     || null,
+    take_profit_1:      best.data.take_profit_1 || null,
+    take_profit_2:      best.data.take_profit_2 || null,
+    risk_reward_ratio:  best.data.risk_reward_ratio || null,
+    trend:              best.data.trend         || 'UNKNOWN',
+    market_sentiment:   best.data.market_sentiment || (direction === 'BUY' ? 'BULLISH' : 'BEARISH'),
+    strategy_used:      best.data.strategy_used || 'Multi-AI Consensus',
+    all_agreed:         allAgree,
+    providers_count:    valid.length,
+    individual_results: valid.map(r => ({
+      provider:   r.provider,
+      direction:  r.data.direction,
       confidence: r.data.confidence,
-      confluence: r.data.confluence_score,
-      weight: `${Math.round((WEIGHTS[r.provider] ?? 0.10) * 100)}%`,
+      weight:     `${Math.round((WEIGHTS[r.provider] || 0.10) * 100)}%`,
     })),
-    failed_providers: failed.map((r) => ({ provider: r.provider, error: r.error })),
-    reasoning,
+    failed_providers: failed.map(r => r.provider),
+    reasoning: allAgree
+      ? `${valid.length} AI models agree: ${direction}. Confidence ${consensusConf}%. ${best.data.reasoning || ''}`.trim()
+      : `Weighted consensus: ${direction} from ${valid.length} models. Best signal: ${best.provider}. ${best.data.reasoning || ''}`.trim(),
   };
 }
 
-// ── Normalise multi-AI result to the standard prediction shape ────────────────
-function normaliseMultiAI(consensus, symbol) {
-  if (!consensus.setup) {
-    // Return a HOLD prediction shape so the caller can handle "no setup"
-    return {
-      direction:        'HOLD',
-      confidence:       0,
-      entryPrice:       0,
-      stopLoss:         0,
-      takeProfit:       0,
-      riskRewardRatio:  0,
-      reasoning:        consensus.reason || 'No valid trade setup identified by multi-AI consensus.',
-      keyRisks:         'Insufficient confluence across AI providers.',
-      marketBias:       consensus.market_sentiment || 'NEUTRAL',
-      timeHorizon:      '',
-      disclaimer:       'This is an AI-generated analysis. Not financial advice.',
-      aiProvider:       'multi_ai',
-      agreement:        null,
-      providers_used:   (consensus.providers_responded || []).map((p) => p.provider),
-      confluence_score: 0,
-      kelly_position_size: '0%',
-      individual_results_list: consensus.providers_responded || [],
-    };
-  }
-
-  const dirMap = { BUY: 'BUY', SELL: 'SELL', NEUTRAL: 'HOLD', HOLD: 'HOLD' };
-  const normDir = dirMap[consensus.direction?.toUpperCase()] || 'HOLD';
-
-  return {
-    direction:        normDir,
-    confidence:       consensus.confidence,
-    entryPrice:       parseFloat(consensus.entry_price)   || 0,
-    stopLoss:         parseFloat(consensus.stop_loss)     || 0,
-    takeProfit:       parseFloat(consensus.take_profit_1) || parseFloat(consensus.take_profit_2) || 0,
-    riskRewardRatio:  Number(consensus.risk_reward_ratio) || 0,
-    reasoning:        consensus.reasoning || '',
-    keyRisks:         consensus.all_agreed
-      ? `All ${consensus.providers_count} AI providers agree. High-conviction signal.`
-      : `${consensus.providers_count} providers polled. Disagreement detected — exercise caution.`,
-    marketBias:       consensus.market_sentiment || 'NEUTRAL',
-    timeHorizon:      consensus.timeframe || '',
-    fibLevels:        `Take Profit 1: ${consensus.take_profit_1 || '—'}  Take Profit 2: ${consensus.take_profit_2 || '—'}`,
-    emaAlignment:     consensus.trend || '',
-    disclaimer:       'Multi-AI Consensus: 5 independent models weighted by capability. Not financial advice.',
-    aiProvider:       'multi_ai',
-    agreement:        consensus.all_agreed,
-    providers_used:   (consensus.individual_results || []).map((r) => r.provider),
-    confluence_score: consensus.confluence_score,
-    kelly_position_size: consensus.kelly_position_size,
-    // Extended multi-AI fields — picked up by PredictionCard
-    individual_results_list: consensus.individual_results || [],
-    indicator_votes:         consensus.indicator_votes   || {},
-    failed_providers:        consensus.failed_providers  || [],
-    all_agreed:              consensus.all_agreed,
-    providers_count:         consensus.providers_count,
-  };
+// ── Extract error message from a settled Promise rejection ────────────────────
+function extractError(reason) {
+  return reason?.message?.slice(0, 100) || 'Unknown error';
 }
 
 // ── Main export ────────────────────────────────────────────────────────────────
-const PROVIDER_TIMEOUT_MS = 30000;
-
 async function generateMultiAIPrediction(symbol, timeframe) {
-  console.log(`[MultiAI] Fetching live market data for ${symbol}…`);
-  const marketData = await getAllMarketData(symbol);
+  console.log(`[MultiAI] Starting: ${symbol} ${timeframe}`);
 
-  if (marketData.quote) {
-    console.log(`[MultiAI] Live price: ${marketData.quote.current_price} (${symbol})`);
-  } else {
-    console.warn('[MultiAI] No live price data — AI will use training knowledge');
+  // Get live market data
+  let marketData = {};
+  try {
+    marketData = await getAllMarketData(symbol);
+    if (marketData?.quote?.current_price) {
+      console.log(`[MultiAI] Live price: ${marketData.quote.current_price}`);
+    }
+  } catch {
+    console.warn('[MultiAI] Market data unavailable, using AI knowledge');
   }
 
-  // Build prompt enriched with live price, sentiment, and news
-  const livePrompt = buildMasterPrompt(marketData);
-
-  console.log(`[MultiAI] Starting parallel analysis: ${symbol} ${timeframe}`);
-
-  const [groq, gemini, mistral, cohere, openrouter] = await Promise.allSettled([
-    withTimeout(callGroq(symbol, timeframe, livePrompt),       PROVIDER_TIMEOUT_MS),
-    withTimeout(callGemini(symbol, timeframe, livePrompt),     PROVIDER_TIMEOUT_MS),
-    withTimeout(callMistral(symbol, timeframe, livePrompt),    PROVIDER_TIMEOUT_MS),
-    withTimeout(callCohere(symbol, timeframe, livePrompt),     PROVIDER_TIMEOUT_MS),
-    withTimeout(callOpenRouter(symbol, timeframe, livePrompt), PROVIDER_TIMEOUT_MS),
+  // Run all providers simultaneously with individual error handling
+  const [groq, hf, gemini, mistral, openrouter] = await Promise.allSettled([
+    callGroq(symbol, timeframe, marketData),
+    callHuggingFace(symbol, timeframe, marketData),
+    callGemini(symbol, timeframe, marketData),
+    callMistral(symbol, timeframe, marketData),
+    callOpenRouter(symbol, timeframe, marketData),
   ]);
 
   const results = [
-    groq.status       === 'fulfilled' ? groq.value       : { provider: 'groq',       data: null, error: groq.reason?.message       || 'Unknown error' },
-    gemini.status     === 'fulfilled' ? gemini.value     : { provider: 'gemini',     data: null, error: gemini.reason?.message     || 'Unknown error' },
-    mistral.status    === 'fulfilled' ? mistral.value    : { provider: 'mistral',    data: null, error: mistral.reason?.message    || 'Unknown error' },
-    cohere.status     === 'fulfilled' ? cohere.value     : { provider: 'cohere',     data: null, error: cohere.reason?.message     || 'Unknown error' },
-    openrouter.status === 'fulfilled' ? openrouter.value : { provider: 'openrouter', data: null, error: openrouter.reason?.message || 'Unknown error' },
+    groq.status       === 'fulfilled' ? groq.value
+      : { provider: 'groq',        data: null, error: extractError(groq.reason) },
+    hf.status         === 'fulfilled' ? hf.value
+      : { provider: 'huggingface', data: null, error: extractError(hf.reason) },
+    gemini.status     === 'fulfilled' ? gemini.value
+      : { provider: 'gemini',      data: null, error: extractError(gemini.reason) },
+    mistral.status    === 'fulfilled' ? mistral.value
+      : { provider: 'mistral',     data: null, error: extractError(mistral.reason) },
+    openrouter.status === 'fulfilled' ? openrouter.value
+      : { provider: 'openrouter',  data: null, error: extractError(openrouter.reason) },
   ];
 
   const consensus = buildConsensus(results, symbol, timeframe);
-  const normalised = normaliseMultiAI(consensus, symbol);
 
-  // Attach live price metadata so the frontend can display it
-  normalised.live_price_used = Boolean(marketData.quote);
-  normalised.live_price      = marketData.quote?.current_price ?? null;
-  normalised.live_change_pct = marketData.quote?.change_pct    ?? null;
+  // Add camelCase aliases for backward compatibility with aiController DB save
+  const entryPriceNum  = parseFloat(consensus.entry_price)   || null;
+  const stopLossNum    = parseFloat(consensus.stop_loss)     || null;
+  const takeProfitNum  = parseFloat(consensus.take_profit_1) || parseFloat(consensus.take_profit_2) || null;
 
-  return normalised;
+  return {
+    ...consensus,
+    // camelCase aliases
+    entryPrice:      entryPriceNum,
+    stopLoss:        stopLossNum,
+    takeProfit:      takeProfitNum,
+    riskRewardRatio: Number(consensus.risk_reward_ratio) || null,
+    aiProvider:      'multi_ai',
+    // live price metadata
+    live_price_used:  Boolean(marketData.quote),
+    live_price:       marketData.quote?.current_price ?? null,
+    live_change_pct:  marketData.quote?.change_pct    ?? null,
+  };
 }
 
 module.exports = { generateMultiAIPrediction };
