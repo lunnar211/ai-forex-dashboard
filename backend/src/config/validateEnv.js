@@ -15,7 +15,7 @@ function validateEnv() {
   // At least one AI provider key is strongly recommended; without one all AI
   // prediction endpoints will return errors, but the rest of the app (auth,
   // forex data, admin) will still function normally.
-  const aiKeys = ['GROQ_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'OPENROUTER_API_KEY', 'ANTHROPIC_API_KEY'];
+  const aiKeys = ['GROQ_API_KEY', 'OPENAI_API_KEY', 'GEMINI_API_KEY', 'OPENROUTER_API_KEY', 'ANTHROPIC_API_KEY', 'MISTRAL_API_KEY', 'COHERE_API_KEY'];
   const hasAiKey = aiKeys.some((k) => process.env[k]);
   if (!hasAiKey) {
     warnings.push(

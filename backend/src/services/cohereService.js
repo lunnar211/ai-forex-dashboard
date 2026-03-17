@@ -1,17 +1,11 @@
 'use strict';
 
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const axios = require('axios');
 const { buildTradingPrompt } = require('./groqService');
 const { MASTER_SYSTEM_PROMPT } = require('./masterPrompt');
 
-let geminiClient = null;
-
-function getClient() {
-  if (!geminiClient && process.env.GEMINI_API_KEY) {
-    geminiClient = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-  }
-  return geminiClient;
-}
+const COHERE_CHAT_URL = 'https://api.cohere.com/v1/chat';
+const COHERE_MODEL = 'command-r';
 
 function parseAIResponse(content, indicators) {
   const cleaned = content.replace(/```json|```/g, '').trim();
@@ -21,7 +15,7 @@ function parseAIResponse(content, indicators) {
     parsed = JSON.parse(cleaned);
   } catch {
     const match = cleaned.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('No valid JSON found in Gemini response');
+    if (!match) throw new Error('No valid JSON found in Cohere response');
     parsed = JSON.parse(match[0]);
   }
 
@@ -39,37 +33,45 @@ function parseAIResponse(content, indicators) {
     fibLevels: parsed.fibLevels || '',
     emaAlignment: parsed.emaAlignment || '',
     disclaimer: 'For educational purposes only. Not financial advice.',
-    aiProvider: 'gemini',
+    aiProvider: 'cohere',
   };
 }
 
 /**
- * Generate an AI trading prediction using Google Gemini (gemini-1.5-flash).
+ * Generate an AI trading prediction using Cohere (command-r).
  *
  * @param {string}   symbol
  * @param {string}   timeframe
- * @param {object}   indicators
- * @param {object[]} priceData
+ * @param {object}   indicators  Output of indicatorService.calculateAll()
+ * @param {object[]} priceData   Array of recent OHLCV candles
  * @returns {Promise<object>}
  */
 async function getAIPrediction(symbol, timeframe, indicators, priceData) {
-  const client = getClient();
-  if (!client) {
-    throw new Error('Gemini API key not configured');
+  if (!process.env.COHERE_API_KEY) {
+    throw new Error('Cohere API key not configured');
   }
 
   const prompt = buildTradingPrompt(symbol, timeframe, indicators, priceData);
 
-  const model = client.getGenerativeModel({
-    model: 'gemini-2.0-flash',
-    generationConfig: {
+  const response = await axios.post(
+    COHERE_CHAT_URL,
+    {
+      model: COHERE_MODEL,
+      preamble: MASTER_SYSTEM_PROMPT,
+      message: prompt,
       temperature: 0.3,
-      maxOutputTokens: 1024,
+      max_tokens: 1024,
     },
-  });
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.COHERE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      timeout: 30000,
+    }
+  );
 
-  const result = await model.generateContent(`${MASTER_SYSTEM_PROMPT}\n\n${prompt}`);
-  const content = result.response.text();
+  const content = response.data?.text || '';
   return parseAIResponse(content, indicators);
 }
 

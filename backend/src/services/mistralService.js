@@ -1,16 +1,23 @@
 'use strict';
 
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const OpenAI = require('openai');
 const { buildTradingPrompt } = require('./groqService');
 const { MASTER_SYSTEM_PROMPT } = require('./masterPrompt');
 
-let geminiClient = null;
+// Mistral exposes an OpenAI-compatible endpoint; we reuse the OpenAI SDK.
+const MISTRAL_BASE_URL = 'https://api.mistral.ai/v1';
+const MISTRAL_MODEL = 'mistral-small-latest';
+
+let mistralClient = null;
 
 function getClient() {
-  if (!geminiClient && process.env.GEMINI_API_KEY) {
-    geminiClient = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+  if (!mistralClient && process.env.MISTRAL_API_KEY) {
+    mistralClient = new OpenAI({
+      apiKey: process.env.MISTRAL_API_KEY,
+      baseURL: MISTRAL_BASE_URL,
+    });
   }
-  return geminiClient;
+  return mistralClient;
 }
 
 function parseAIResponse(content, indicators) {
@@ -21,7 +28,7 @@ function parseAIResponse(content, indicators) {
     parsed = JSON.parse(cleaned);
   } catch {
     const match = cleaned.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('No valid JSON found in Gemini response');
+    if (!match) throw new Error('No valid JSON found in Mistral response');
     parsed = JSON.parse(match[0]);
   }
 
@@ -39,37 +46,41 @@ function parseAIResponse(content, indicators) {
     fibLevels: parsed.fibLevels || '',
     emaAlignment: parsed.emaAlignment || '',
     disclaimer: 'For educational purposes only. Not financial advice.',
-    aiProvider: 'gemini',
+    aiProvider: 'mistral',
   };
 }
 
 /**
- * Generate an AI trading prediction using Google Gemini (gemini-1.5-flash).
+ * Generate an AI trading prediction using Mistral (mistral-small-latest).
  *
  * @param {string}   symbol
  * @param {string}   timeframe
- * @param {object}   indicators
- * @param {object[]} priceData
+ * @param {object}   indicators  Output of indicatorService.calculateAll()
+ * @param {object[]} priceData   Array of recent OHLCV candles
  * @returns {Promise<object>}
  */
 async function getAIPrediction(symbol, timeframe, indicators, priceData) {
   const client = getClient();
   if (!client) {
-    throw new Error('Gemini API key not configured');
+    throw new Error('Mistral API key not configured');
   }
 
   const prompt = buildTradingPrompt(symbol, timeframe, indicators, priceData);
 
-  const model = client.getGenerativeModel({
-    model: 'gemini-2.0-flash',
-    generationConfig: {
-      temperature: 0.3,
-      maxOutputTokens: 1024,
-    },
+  const completion = await client.chat.completions.create({
+    model: MISTRAL_MODEL,
+    messages: [
+      {
+        role: 'system',
+        content: MASTER_SYSTEM_PROMPT,
+      },
+      { role: 'user', content: prompt },
+    ],
+    temperature: 0.3,
+    max_tokens: 1024,
   });
 
-  const result = await model.generateContent(`${MASTER_SYSTEM_PROMPT}\n\n${prompt}`);
-  const content = result.response.text();
+  const content = completion.choices[0]?.message?.content || '';
   return parseAIResponse(content, indicators);
 }
 
