@@ -49,6 +49,7 @@ export default function History() {
   const [count, setCount] = useState(0);
   const [offset, setOffset] = useState(0);
   const [symbolFilter, setSymbolFilter] = useState('All');
+  const [directionFilter, setDirectionFilter] = useState<'All'|'BUY'|'SELL'|'HOLD'>('All');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -92,6 +93,26 @@ export default function History() {
     fetchHistory(symbolFilter, newOff);
   }
 
+  function exportCSV() {
+    if (!records.length) return;
+    const headers = ['Date', 'Symbol', 'Timeframe', 'Direction', 'Confidence', 'Entry Price', 'Stop Loss', 'Take Profit', 'AI Provider'];
+    const rows = records.map(r => [
+      new Date(r.created_at).toLocaleString(),
+      r.symbol, r.timeframe, r.direction, r.confidence,
+      r.entry_price, r.stop_loss, r.take_profit, r.ai_provider,
+    ]);
+    const csv = [headers, ...rows].map(row => row.map(v => `"${v ?? ''}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `predictions-${Date.now()}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const filteredRecords = directionFilter === 'All'
+    ? records
+    : records.filter(r => (r.direction?.toUpperCase() ?? 'HOLD') === directionFilter);
+
   const totalPages = Math.ceil(count / LIMIT);
   const currentPage = Math.floor(offset / LIMIT) + 1;
 
@@ -104,8 +125,33 @@ export default function History() {
         <TopNav />
         <main className="flex-1 p-4 md:p-6">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-white mb-1">Prediction History</h1>
+            <div className="flex items-center justify-between mb-2">
+              <h1 className="text-2xl font-bold text-white">Prediction History</h1>
+              <button onClick={exportCSV} disabled={records.length === 0}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#1e293b] border border-[#334155] text-[#94a3b8] hover:text-white text-xs font-semibold rounded-lg transition-colors disabled:opacity-40">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                Export CSV
+              </button>
+            </div>
             <p className="text-sm text-[#94a3b8]">Review all your past AI predictions</p>
+          </div>
+
+          {/* Direction filter */}
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-xs text-[#64748b] font-medium mr-1">Direction:</span>
+            {(['All','BUY','SELL','HOLD'] as const).map(d => (
+              <button key={d} onClick={() => setDirectionFilter(d)}
+                className={clsx('px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors border',
+                  directionFilter === d
+                    ? d === 'All' ? 'bg-blue-600 text-white border-blue-600'
+                      : d === 'BUY' ? 'bg-[#22c55e] text-white border-[#22c55e]'
+                      : d === 'SELL' ? 'bg-[#ef4444] text-white border-[#ef4444]'
+                      : 'bg-[#eab308] text-black border-[#eab308]'
+                    : 'bg-[#1e293b] text-[#94a3b8] border-[#334155] hover:text-white'
+                )}>{d}</button>
+            ))}
           </div>
 
           {/* Filters */}
@@ -180,14 +226,14 @@ export default function History() {
                         ))}
                       </tr>
                     ))
-                  ) : records.length === 0 ? (
+                  ) : filteredRecords.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="px-4 py-12 text-center text-[#475569]">
                         No predictions found. Get your first AI prediction from the dashboard.
                       </td>
                     </tr>
                   ) : (
-                    records.map((r) => {
+                    filteredRecords.map((r) => {
                       const dir = r.direction?.toUpperCase() ?? 'HOLD';
                       const dirStyle = directionStyles[dir] ?? 'text-white';
                       return (
