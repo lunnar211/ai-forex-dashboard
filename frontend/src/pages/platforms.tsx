@@ -4,23 +4,25 @@ import dynamic from 'next/dynamic';
 import { useRouter } from 'next/router';
 import clsx from 'clsx';
 import { useAuthStore } from '../store/authStore';
-import { forex, ai, activity } from '../services/api';
+import { forex, ai, market, activity } from '../services/api';
 import Sidebar from '../components/Sidebar';
 import TopNav from '../components/TopNav';
 import PredictionCard from '../components/PredictionCard';
 import IndicatorGauges from '../components/IndicatorGauges';
+import NewsPanel from '../components/NewsPanel';
 import type {
   Candle, Prediction, Indicators, Timeframe, PredictResponse,
-  PlatformCategoryDef,
+  PlatformCategoryDef, NewsArticle,
 } from '../types';
 
 const ChartPanel = dynamic(() => import('../components/ChartPanel'), { ssr: false });
 
 const TIMEFRAMES: { label: string; value: Timeframe }[] = [
+  { label: '5m',  value: '5min' },
   { label: '15m', value: '15min' },
-  { label: '1H', value: '1h' },
-  { label: '4H', value: '4h' },
-  { label: '1D', value: '1day' },
+  { label: '1H',  value: '1h' },
+  { label: '4H',  value: '4h' },
+  { label: '1D',  value: '1day' },
 ];
 
 const PLATFORM_CATEGORIES: PlatformCategoryDef[] = [
@@ -386,6 +388,8 @@ export default function Platforms() {
     current_price: number; open: number; high: number; low: number;
     change: number; change_pct: string; previous_close: number;
   } | null>(null);
+  const [newsArticles, setNewsArticles] = useState<NewsArticle[]>([]);
+  const [loadingNews, setLoadingNews] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -430,6 +434,32 @@ export default function Platforms() {
     const id = setInterval(fetchLivePrice, 30_000);
     return () => clearInterval(id);
   }, [mounted, isAuthenticated, fetchLivePrice, selectedSymbol]);
+
+  // Fetch news whenever a symbol is selected
+  useEffect(() => {
+    if (!mounted || !isAuthenticated || !selectedSymbol) return;
+    let cancelled = false;
+    setLoadingNews(true);
+    setNewsArticles([]);
+    market.getNews(selectedSymbol)
+      .then((data) => {
+        if (cancelled) return;
+        const articles: NewsArticle[] = (data?.data?.articles ?? []).map(
+          (a: { title?: string; description?: string; source?: string; published?: string; sentiment?: string; url?: string }) => ({
+            title:       a.title ?? '',
+            description: a.description,
+            source:      a.source,
+            published:   a.published,
+            sentiment:   (a.sentiment as NewsArticle['sentiment']) ?? 'NEUTRAL',
+            url:         a.url,
+          })
+        );
+        setNewsArticles(articles);
+      })
+      .catch(() => { /* non-fatal */ })
+      .finally(() => { if (!cancelled) setLoadingNews(false); });
+    return () => { cancelled = true; };
+  }, [mounted, isAuthenticated, selectedSymbol]);
 
   // Fetch enriched Finnhub quote (H/L/change%) every 30 s
   useEffect(() => {
@@ -490,6 +520,7 @@ export default function Platforms() {
     setLivePrice(null);
     setError('');
     setChartError('');
+    setNewsArticles([]);
     activity.track({ action: 'symbol_view', page: 'platforms', symbol });
   }
 
@@ -502,6 +533,7 @@ export default function Platforms() {
     setLivePrice(null);
     setError('');
     setChartError('');
+    setNewsArticles([]);
   }
 
   function handleTimeframeChange(tf: string) {
@@ -884,6 +916,15 @@ export default function Platforms() {
                     )}
                   </div>
                 </div>
+              )}
+
+              {/* ── News Panel ── */}
+              {selectedSymbol && (
+                <NewsPanel
+                  articles={newsArticles}
+                  loading={loadingNews}
+                  symbol={selectedSymbol}
+                />
               )}
 
               {!selectedSymbol && (

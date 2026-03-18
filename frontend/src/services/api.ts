@@ -209,6 +209,9 @@ export const ai = {
   predict: (symbol: string, timeframe: string, provider?: string) =>
     apiClient.post('/ai/predict', { symbol, timeframe, ...(provider ? { provider } : {}) }).then((r) => r.data),
 
+  analyzeAdvanced: (symbol: string, timeframe: string) =>
+    apiClient.post('/ai/analyze-advanced', { symbol, timeframe }).then((r) => r.data),
+
   getHistory: (symbol?: string, limit = 20, offset = 0) =>
     apiClient
       .get('/ai/history', { params: { symbol, limit, offset } })

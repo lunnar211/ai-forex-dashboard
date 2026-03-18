@@ -3,7 +3,7 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const { predict, getHistory, getSignals, analyzeImage } = require('../controllers/aiController');
+const { predict, getHistory, getSignals, analyzeImage, analyzeAdvanced } = require('../controllers/aiController');
 const authMiddleware = require('../middleware/auth');
 const rateLimit = require('express-rate-limit');
 
@@ -40,6 +40,7 @@ const readRateLimiter = rateLimit({
 });
 
 router.post('/predict', predictRateLimiter, authMiddleware, predict);
+router.post('/analyze-advanced', predictRateLimiter, authMiddleware, analyzeAdvanced);
 router.get('/history', readRateLimiter, authMiddleware, getHistory);
 router.get('/signals', readRateLimiter, authMiddleware, getSignals);
 router.post('/analyze-image', predictRateLimiter, authMiddleware, upload.single('image'), analyzeImage);
