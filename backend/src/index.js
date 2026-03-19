@@ -21,6 +21,7 @@ const activityRoutes = require('./routes/activity');
 const marketRoutes = require('./routes/market');
 const signalsRoutes = require('./routes/signals');
 const newsRoutes = require('./routes/news');
+const newsSignalsRoute = require('./routes/newsSignals');
 const { startBot } = require('./services/telegramBot');
 
 const app = express();
@@ -72,6 +73,7 @@ app.use('/activity', activityRoutes);
 app.use('/market', marketRoutes);
 app.use('/signals', signalsRoutes);
 app.use('/news', newsRoutes);
+app.use('/news', newsSignalsRoute);
 
 // ─── Health endpoint ─────────────────────────────────────────────────────────
 
