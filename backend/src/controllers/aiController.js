@@ -49,7 +49,7 @@ const ALLOWED_SYMBOLS = new Set([
   // Commodities
   'OIL/USD', 'NATGAS/USD', 'WHEAT/USD', 'CORN/USD',
 ]);
-const ALLOWED_TIMEFRAMES = new Set(['15min', '1h', '4h', '1day']);
+const ALLOWED_TIMEFRAMES = new Set(['5min', '15min', '1h', '4h', '1day']);
 
 // Maximum file size (in bytes) that can be safely base64-encoded for Gemini (7.5 MB)
 const MAX_IMAGE_BYTES_FOR_GEMINI = 7.5 * 1024 * 1024;
@@ -659,4 +659,205 @@ async function analyzeImage(req, res) {
   }
 }
 
-module.exports = { predict, getHistory, getSignals, analyzeImage };
+// ─── Current Trading Session Helper ──────────────────────────────────────────
+
+function getCurrentSession() {
+  const now = new Date();
+  const hour = now.getUTCHours();
+  const sessions = [];
+  if (hour >= 8 && hour < 16)  sessions.push('london');
+  if (hour >= 13 && hour < 21) sessions.push('new_york');
+  if (hour < 8 || hour >= 21)  sessions.push('asian');
+  if (sessions.length === 0)   sessions.push('off');
+  return sessions.join('+');
+}
+
+// ─── Analyse Advanced Controller ─────────────────────────────────────────────
+
+// POST /ai/analyze-advanced
+async function analyzeAdvanced(req, res) {
+  const { symbol = 'EUR/USD', timeframe = '1h' } = req.body;
+  const userId = req.user.id;
+  const redis = req.app.locals.redis;
+
+  const normalizedSymbol = typeof symbol === 'string' ? symbol.toUpperCase() : '';
+  if (!ALLOWED_SYMBOLS.has(normalizedSymbol)) {
+    return res.status(400).json({ error: `Invalid symbol. Allowed: ${[...ALLOWED_SYMBOLS].join(', ')}.` });
+  }
+  if (!ALLOWED_TIMEFRAMES.has(timeframe)) {
+    return res.status(400).json({ error: `Invalid timeframe. Allowed: ${[...ALLOWED_TIMEFRAMES].join(', ')}.` });
+  }
+  if (req.user.is_restricted) {
+    return res.status(403).json({ error: 'Your account has been restricted. AI predictions are unavailable.' });
+  }
+
+  const rateCheck = await checkRateLimit(redis, userId);
+  if (!rateCheck.allowed) {
+    return res.status(429).json({ error: `Rate limit exceeded. Resets in ${rateCheck.resetInSeconds}s.` });
+  }
+
+  try {
+    const { candles, isMock } = await fetchOHLCV(symbol, timeframe, 100);
+    const indicators = calculateAll(candles);
+    const session = getCurrentSession();
+
+    // ── Indicators ────────────────────────────────────────────────────────────
+    const price   = indicators.currentPrice;
+    const ema20   = indicators.ema?.ema20   || price;
+    const ema50   = indicators.ema?.ema50   || price;
+    const rsi     = indicators.rsi          || 50;
+    const macdH   = indicators.macd?.histogram || 0;
+    const atr     = indicators.atr          || price * 0.003;
+
+    const isUptrend     = price > ema20 && ema20 > ema50;
+    const isDowntrend   = price < ema20 && ema20 < ema50;
+    const rsiOversold   = rsi < 35;
+    const rsiOverbought = rsi > 65;
+    const macdBullish   = macdH > 0;
+    const macdBearish   = macdH < 0;
+    const srLevels      = indicators.supportResistance || { support: [], resistance: [] };
+    const nearSupport    = srLevels.support.some((l) => Math.abs(price - l) / price < 0.005);
+    const nearResistance = srLevels.resistance.some((l) => Math.abs(price - l) / price < 0.005);
+    const sessionActive  = session !== 'off' && !session.startsWith('asian');
+    const highVolume     = indicators.volumeTrend === 'HIGH';
+
+    // ── Volatility classification ─────────────────────────────────────────────
+    const atrPct = price > 0 ? (atr / price) * 100 : 0;
+    const volatility = atrPct > 1.0 ? 'high' : atrPct > 0.5 ? 'medium' : 'low';
+
+    // ── Direction ─────────────────────────────────────────────────────────────
+    const direction = isUptrend && rsiOversold
+      ? 'BUY'
+      : isDowntrend && rsiOverbought
+      ? 'SELL'
+      : macdBullish && price > ema50
+      ? 'BUY'
+      : macdBearish && price < ema50
+      ? 'SELL'
+      : 'HOLD';
+
+    // ── Price levels ──────────────────────────────────────────────────────────
+    let entryPrice, stopLoss, tp1, tp2, tp3;
+    if (direction === 'BUY') {
+      entryPrice = parseFloat(price.toFixed(5));
+      stopLoss   = parseFloat((price - atr * 1.5).toFixed(5));
+      tp1        = parseFloat((price + atr * 1.5).toFixed(5));
+      tp2        = parseFloat((price + atr * 2.5).toFixed(5));
+      tp3        = parseFloat((price + atr * 3.5).toFixed(5));
+    } else if (direction === 'SELL') {
+      entryPrice = parseFloat(price.toFixed(5));
+      stopLoss   = parseFloat((price + atr * 1.5).toFixed(5));
+      tp1        = parseFloat((price - atr * 1.5).toFixed(5));
+      tp2        = parseFloat((price - atr * 2.5).toFixed(5));
+      tp3        = parseFloat((price - atr * 3.5).toFixed(5));
+    } else {
+      entryPrice = parseFloat(price.toFixed(5));
+      stopLoss   = parseFloat((price - atr * 1.5).toFixed(5));
+      tp1 = tp2 = tp3 = parseFloat((price + atr * 1.5).toFixed(5));
+    }
+
+    const slPips  = parseFloat((Math.abs(entryPrice - stopLoss) * 10000).toFixed(1));
+    const tp1Pips = parseFloat((Math.abs(tp1 - entryPrice) * 10000).toFixed(1));
+    const tp2Pips = parseFloat((Math.abs(tp2 - entryPrice) * 10000).toFixed(1));
+    const rrRatio = slPips > 0 ? parseFloat((tp2Pips / slPips).toFixed(2)) : 2.0;
+
+    // ── Analysis breakdown ────────────────────────────────────────────────────
+    const breakdown = [];
+    if (direction === 'BUY') {
+      breakdown.push({ check: isUptrend,      label: isUptrend     ? '✅ Uptrend confirmed (price > EMA20 > EMA50)' : '❌ No clear uptrend' });
+      breakdown.push({ check: nearSupport,    label: nearSupport   ? '✅ Price at key support zone'                : '⚠️ Not at major support' });
+      breakdown.push({ check: rsiOversold,    label: rsiOversold   ? `✅ RSI: ${rsi.toFixed(0)} — oversold, reversal likely` : `⚠️ RSI: ${rsi.toFixed(0)} — not oversold` });
+      breakdown.push({ check: macdBullish,    label: macdBullish   ? '✅ MACD bullish (histogram positive)'        : '⚠️ MACD not bullish' });
+      breakdown.push({ check: sessionActive,  label: sessionActive ? `✅ Active session: ${session.replace('_', ' ')}` : '⚠️ Low-liquidity session' });
+      breakdown.push({ check: highVolume,     label: highVolume    ? '✅ Volume above average'                     : '⚠️ Average volume' });
+    } else if (direction === 'SELL') {
+      breakdown.push({ check: isDowntrend,    label: isDowntrend    ? '✅ Downtrend confirmed (price < EMA20 < EMA50)' : '❌ No clear downtrend' });
+      breakdown.push({ check: nearResistance, label: nearResistance ? '✅ Price at key resistance zone'               : '⚠️ Not at major resistance' });
+      breakdown.push({ check: rsiOverbought,  label: rsiOverbought  ? `✅ RSI: ${rsi.toFixed(0)} — overbought, reversal likely` : `⚠️ RSI: ${rsi.toFixed(0)} — not overbought` });
+      breakdown.push({ check: macdBearish,    label: macdBearish    ? '✅ MACD bearish (histogram negative)'          : '⚠️ MACD not bearish' });
+      breakdown.push({ check: sessionActive,  label: sessionActive  ? `✅ Active session: ${session.replace('_', ' ')}` : '⚠️ Low-liquidity session' });
+      breakdown.push({ check: highVolume,     label: highVolume     ? '✅ Volume above average'                       : '⚠️ Average volume' });
+    } else {
+      breakdown.push({ check: false, label: '⚠️ No high-probability setup detected' });
+      breakdown.push({ check: false, label: `⚠️ RSI: ${rsi.toFixed(0)} — neutral zone` });
+      breakdown.push({ check: macdBullish, label: macdBullish ? '⚠️ Slight bullish MACD — insufficient alone' : '⚠️ Slight bearish MACD — insufficient alone' });
+    }
+
+    const confirmations = breakdown.filter((b) => b.check).length;
+    const confidence = Math.min(95, 40 + confirmations * 10 + (sessionActive ? 5 : 0) + (highVolume ? 5 : 0));
+
+    // ── Explanation ───────────────────────────────────────────────────────────
+    let explanation = '';
+    if (direction === 'BUY') {
+      explanation = `I'm recommending a BUY on ${symbol} for the following reasons: `;
+      if (isUptrend)     explanation += `The ${timeframe} chart confirms a clear uptrend with price trading above both EMA20 and EMA50. `;
+      if (nearSupport)   explanation += `Price has pulled back to a key support zone — an ideal entry area. `;
+      if (rsiOversold)   explanation += `RSI at ${rsi.toFixed(0)} indicates oversold conditions and a statistically likely reversal. `;
+      if (macdBullish)   explanation += `MACD histogram is positive, confirming bullish momentum. `;
+      if (sessionActive) explanation += `Entering during ${session.replace('_', ' ')} session where liquidity is optimal. `;
+      explanation += `Risk is controlled with Stop Loss at ${stopLoss} (${slPips} pips) with targets offering a minimum 1:2 risk-reward.`;
+    } else if (direction === 'SELL') {
+      explanation = `I'm recommending a SELL on ${symbol} for the following reasons: `;
+      if (isDowntrend)    explanation += `The ${timeframe} chart shows a clear downtrend with price below EMA20 and EMA50. `;
+      if (nearResistance) explanation += `Price has rallied into a key resistance zone — an ideal area for short entries. `;
+      if (rsiOverbought)  explanation += `RSI at ${rsi.toFixed(0)} indicates overbought conditions and a likely pullback. `;
+      if (macdBearish)    explanation += `MACD histogram is negative, confirming bearish momentum. `;
+      if (sessionActive)  explanation += `Entering during ${session.replace('_', ' ')} session for maximum liquidity. `;
+      explanation += `Stop Loss placed at ${stopLoss} (${slPips} pips) with targets offering a minimum 1:2 risk-reward.`;
+    } else {
+      explanation = `No high-probability setup detected on ${symbol} at the ${timeframe} timeframe. ` +
+        `Market is in a consolidation phase with only ${confirmations} confirmation(s) out of 6 required. ` +
+        `Wait for clearer signals: look for price to reach a key S/R level, RSI in extreme territory, and MACD crossover before entering.`;
+    }
+
+    const risks = [];
+    if (volatility === 'high')               risks.push('High volatility — consider reducing position size by 50%');
+    if (!sessionActive)                      risks.push('Low-liquidity session — spreads may be wider than normal');
+    if (!nearSupport && !nearResistance)     risks.push('Not at a defined key level — entry timing may be suboptimal');
+    if (confirmations < 3)                   risks.push(`Low confluence (${confirmations}/6 confirmed) — wait for more signals`);
+
+    const prediction = {
+      direction,
+      confidence,
+      entryPrice,
+      stopLoss,
+      takeProfit:  tp1,
+      takeProfit1: tp1,
+      takeProfit2: tp2,
+      takeProfit3: tp3,
+      riskRewardRatio: rrRatio,
+      slPips,
+      tp1Pips,
+      reasoning: explanation,
+      explanation,
+      keyRisks: risks.length > 0 ? risks.join('; ') : 'Standard market risk applies.',
+      marketBias: direction === 'BUY' ? 'BULLISH' : direction === 'SELL' ? 'BEARISH' : 'NEUTRAL',
+      timeHorizon: timeframe === '1day' ? 'Swing (1–3 days)' : timeframe === '4h' ? 'Medium (4–12 hours)' : 'Short-term (1–4 hours)',
+      session,
+      sessionActive,
+      volatility,
+      confirmations,
+      breakdown,
+      aiProvider: 'advanced-analysis',
+      disclaimer: 'For educational purposes only. Not financial advice.',
+    };
+
+    // Persist to DB
+    await savePrediction(userId, symbol, timeframe, prediction);
+
+    return res.json({
+      symbol,
+      timeframe,
+      isMockData: isMock,
+      indicators,
+      prediction,
+      rateLimit: { remaining: rateCheck.remaining, resetInSeconds: rateCheck.resetInSeconds },
+      createdAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.error('[AIController] analyzeAdvanced error:', err.message);
+    return res.status(500).json({ error: 'Failed to run advanced analysis. Please try again.' });
+  }
+}
+
+module.exports = { predict, getHistory, getSignals, analyzeImage, analyzeAdvanced };

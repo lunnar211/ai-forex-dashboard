@@ -61,6 +61,11 @@ export default function PredictionCard({ prediction, indicators, loading, symbol
   const fmtLevels = (levels: number[] | undefined) =>
     levels?.length ? levels.slice(-3).join(' | ') : '—';
 
+  const hasAdvanced = Boolean(prediction.takeProfit1 && prediction.takeProfit2 && prediction.takeProfit3);
+
+  const volatilityIcon = prediction.volatility === 'high' ? '🔴' : prediction.volatility === 'medium' ? '🟡' : '🟢';
+  const sessionIcon = prediction.sessionActive ? '🟢' : '⚫';
+
   return (
     <div className="bg-[#1e293b] rounded-xl border border-[#334155] overflow-hidden">
       {/* Header */}
@@ -90,19 +95,50 @@ export default function PredictionCard({ prediction, indicators, loading, symbol
       </div>
 
       <div className="p-6 space-y-6">
-        {/* Price targets */}
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: 'Entry Price', value: fmt(prediction.entryPrice), color: 'text-blue-400' },
-            { label: 'Stop Loss', value: fmt(prediction.stopLoss), color: 'text-[#ef4444]' },
-            { label: 'Take Profit', value: fmt(prediction.takeProfit), color: 'text-[#22c55e]' },
-          ].map((item) => (
-            <div key={item.label} className="bg-[#0f172a] rounded-lg p-3 text-center">
-              <p className="text-xs text-[#94a3b8] mb-1">{item.label}</p>
-              <p className={clsx('text-sm font-bold font-mono', item.color)}>{item.value}</p>
+        {/* Price targets — extended (TP1/TP2/TP3) or legacy */}
+        {hasAdvanced ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-[#0f172a] rounded-lg p-3 text-center">
+                <p className="text-xs text-[#94a3b8] mb-1">Entry Price</p>
+                <p className="text-sm font-bold font-mono text-blue-400">{fmt(prediction.entryPrice)}</p>
+              </div>
+              <div className="bg-[#0f172a] rounded-lg p-3 text-center">
+                <p className="text-xs text-[#94a3b8] mb-1">
+                  Stop Loss{prediction.slPips ? ` (${prediction.slPips} pips)` : ''}
+                </p>
+                <p className="text-sm font-bold font-mono text-[#ef4444]">{fmt(prediction.stopLoss)}</p>
+              </div>
             </div>
-          ))}
-        </div>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: 'TP1 🎯', value: prediction.takeProfit1!, pips: prediction.tp1Pips },
+                { label: 'TP2 🎯', value: prediction.takeProfit2! },
+                { label: 'TP3 🎯', value: prediction.takeProfit3! },
+              ].map((item) => (
+                <div key={item.label} className="bg-[#052e16]/60 rounded-lg p-3 text-center border border-emerald-900/30">
+                  <p className="text-xs text-[#94a3b8] mb-1">
+                    {item.label}{item.pips ? ` +${item.pips}p` : ''}
+                  </p>
+                  <p className="text-sm font-bold font-mono text-[#22c55e]">{fmt(item.value)}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { label: 'Entry Price', value: fmt(prediction.entryPrice), color: 'text-blue-400' },
+              { label: 'Stop Loss', value: fmt(prediction.stopLoss), color: 'text-[#ef4444]' },
+              { label: 'Take Profit', value: fmt(prediction.takeProfit), color: 'text-[#22c55e]' },
+            ].map((item) => (
+              <div key={item.label} className="bg-[#0f172a] rounded-lg p-3 text-center">
+                <p className="text-xs text-[#94a3b8] mb-1">{item.label}</p>
+                <p className={clsx('text-sm font-bold font-mono', item.color)}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Key metrics */}
         <div className="bg-[#0f172a] rounded-lg p-4 space-y-0">
@@ -111,6 +147,15 @@ export default function PredictionCard({ prediction, indicators, loading, symbol
           <Row label="Market Bias" value={prediction.marketBias} />
           <Row label="AI Provider" value={prediction.aiProvider}
             valueClass="text-blue-400" />
+          {prediction.session && (
+            <Row label="Session" value={`${sessionIcon} ${prediction.session.replace('_', ' ')}`} />
+          )}
+          {prediction.volatility && (
+            <Row label="Volatility" value={`${volatilityIcon} ${prediction.volatility.charAt(0).toUpperCase() + prediction.volatility.slice(1)}`} />
+          )}
+          {prediction.confirmations !== undefined && (
+            <Row label="Confirmations" value={`${prediction.confirmations} / 6`} />
+          )}
           {prediction.emaAlignment && (
             <Row label="EMA Alignment" value={prediction.emaAlignment} />
           )}
@@ -129,6 +174,25 @@ export default function PredictionCard({ prediction, indicators, loading, symbol
             </>
           )}
         </div>
+
+        {/* Analysis breakdown (advanced analysis) */}
+        {prediction.breakdown && prediction.breakdown.length > 0 && (
+          <div className="bg-[#0f172a] rounded-lg p-4">
+            <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider mb-3">
+              📊 Analysis Breakdown
+            </p>
+            <div className="space-y-2">
+              {prediction.breakdown.map((item, i) => (
+                <p key={i} className={clsx(
+                  'text-sm leading-relaxed',
+                  item.check ? 'text-[#cbd5e1]' : 'text-[#64748b]'
+                )}>
+                  {item.label}
+                </p>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Indicators deep dive */}
         {indicators && (
@@ -288,15 +352,19 @@ export default function PredictionCard({ prediction, indicators, loading, symbol
           </div>
         )}
 
-        {/* Reasoning */}
+        {/* Reasoning / WHY explanation */}
         <div className="bg-[#0f172a] rounded-lg p-4">
-          <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider mb-2">AI Reasoning</p>
-          <p className="text-sm text-[#cbd5e1] leading-relaxed">{prediction.reasoning}</p>
+          <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider mb-2">
+            {prediction.explanation ? '💬 WHY?' : 'AI Reasoning'}
+          </p>
+          <p className="text-sm text-[#cbd5e1] leading-relaxed">
+            {prediction.explanation ?? prediction.reasoning}
+          </p>
         </div>
 
         {/* Key Risks */}
         <div className="bg-[#0f172a] rounded-lg p-4 border-l-2 border-[#eab308]">
-          <p className="text-xs font-semibold text-[#eab308] uppercase tracking-wider mb-2">Key Risks</p>
+          <p className="text-xs font-semibold text-[#eab308] uppercase tracking-wider mb-2">⚠️ Key Risks</p>
           <p className="text-sm text-[#cbd5e1] leading-relaxed">{prediction.keyRisks}</p>
         </div>
 

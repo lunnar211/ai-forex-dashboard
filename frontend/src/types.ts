@@ -10,7 +10,7 @@ export interface AdminUser {
 }
 
 export type ForexSymbol = 'EUR/USD' | 'GBP/USD' | 'USD/JPY' | 'AUD/USD' | 'XAU/USD';
-export type Timeframe = '15min' | '1h' | '4h' | '1day';
+export type Timeframe = '5min' | '15min' | '1h' | '4h' | '1day';
 
 export type PlatformCategory = 'forex' | 'metals' | 'crypto' | 'stocks' | 'indices' | 'commodities' | 'copy';
 
@@ -113,8 +113,15 @@ export interface Prediction {
   entryPrice: number;
   stopLoss: number;
   takeProfit: number;
+  // Extended take-profit levels (analyze-advanced)
+  takeProfit1?: number;
+  takeProfit2?: number;
+  takeProfit3?: number;
+  slPips?: number;
+  tp1Pips?: number;
   riskRewardRatio: number;
   reasoning: string;
+  explanation?: string;
   keyRisks: string;
   marketBias: string;
   timeHorizon: string;
@@ -122,6 +129,12 @@ export interface Prediction {
   emaAlignment?: string;
   disclaimer: string;
   aiProvider: string;
+  // Advanced analysis fields
+  session?: string;
+  sessionActive?: boolean;
+  volatility?: 'low' | 'medium' | 'high';
+  confirmations?: number;
+  breakdown?: Array<{ check: boolean; label: string }>;
   // Dual AI extended fields
   agreement?: boolean | null;
   providers_used?: string[];
@@ -143,6 +156,15 @@ export interface Prediction {
   failed_providers?: Array<{ provider: string; error: string }>;
   all_agreed?: boolean;
   providers_count?: number;
+}
+
+export interface NewsArticle {
+  title: string;
+  description?: string;
+  source?: string;
+  published?: string;
+  sentiment?: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  url?: string;
 }
 
 export interface PredictResponse {
