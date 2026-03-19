@@ -8,25 +8,36 @@
  * consensus algorithm, and returns ONE final high-accuracy trading signal.
  *
  * Provider weights (total = 1.0):
- *   Groq         30%  – fast, reliable fundamentals (llama-3.1-8b-instant)
- *   HuggingFace  25%  – Qwen2.5-7B, excellent JSON output
+ *   Groq         25%  – fast, reliable fundamentals (llama-3.1-8b-instant)
+ *   HuggingFace  20%  – Qwen2.5-7B, excellent JSON output
  *   Gemini       20%  – strong pattern recognition (gemini-1.5-flash)
  *   Mistral      15%  – precise structured reasoning (open-mistral-7b)
+ *   DeepSeek     10%  – additional precision (deepseek-chat)
  *   OpenRouter   10%  – additional signal diversity (phi-3-mini free)
  */
 
 const Groq                   = require('groq-sdk');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
+const OpenAI                 = require('openai');
 const axios                  = require('axios');
 const { getAllMarketData }    = require('./marketDataService');
 
+// ── Warn once at startup about missing provider keys ─────────────────────────
+if (!process.env.GROQ_API_KEY)        console.warn('[MultiAI] GROQ_API_KEY missing — skipping Groq');
+if (!process.env.HUGGINGFACE_API_KEY) console.warn('[MultiAI] HUGGINGFACE_API_KEY missing — skipping HuggingFace');
+if (!process.env.GEMINI_API_KEY)      console.warn('[MultiAI] GEMINI_API_KEY missing — skipping Gemini');
+if (!process.env.MISTRAL_API_KEY)     console.warn('[MultiAI] MISTRAL_API_KEY missing — skipping Mistral');
+if (!process.env.OPENROUTER_API_KEY)  console.warn('[MultiAI] OPENROUTER_API_KEY missing — skipping OpenRouter');
+if (!process.env.DEEPSEEK_API_KEY)    console.warn('[MultiAI] DEEPSEEK_API_KEY missing — skipping DeepSeek');
+
 // ── Provider weights (total = 1.0) ────────────────────────────────────────────
 const WEIGHTS = {
-  groq:        0.30,
-  huggingface: 0.25,
+  groq:        0.25,
+  huggingface: 0.20,
   gemini:      0.20,
   mistral:     0.15,
   openrouter:  0.10,
+  deepseek:    0.10,
 };
 
 // ── JSON parser with markdown-fence cleanup ────────────────────────────────────
@@ -241,6 +252,27 @@ async function callOpenRouter(symbol, timeframe, marketData) {
   return parseJSON(res.data.choices[0].message.content, 'openrouter');
 }
 
+// ── PROVIDER 6: DeepSeek (uses OpenAI-compatible API) ────────────────────────
+async function callDeepSeek(symbol, timeframe, marketData) {
+  if (!process.env.DEEPSEEK_API_KEY) throw new Error('No DEEPSEEK_API_KEY');
+  const client = new OpenAI({
+    apiKey:  process.env.DEEPSEEK_API_KEY.trim(),
+    baseURL: 'https://api.deepseek.com',
+  });
+  const prompt = buildShortPrompt(symbol, timeframe, marketData);
+
+  const r = await client.chat.completions.create({
+    model:      'deepseek-chat',
+    max_tokens: 1200,
+    temperature: 0.1,
+    messages: [
+      { role: 'system', content: 'You are a forex analyst. Return JSON only.' },
+      { role: 'user',   content: prompt },
+    ],
+  });
+  return parseJSON(r.choices[0].message.content, 'deepseek');
+}
+
 // ── Weighted consensus algorithm ───────────────────────────────────────────────
 function buildConsensus(results, symbol, timeframe) {
   const valid  = results.filter(r => r.data && r.data.direction &&
@@ -364,12 +396,13 @@ async function generateMultiAIPrediction(symbol, timeframe) {
   }
 
   // Run all providers simultaneously with individual error handling
-  const [groq, hf, gemini, mistral, openrouter] = await Promise.allSettled([
+  const [groq, hf, gemini, mistral, openrouter, deepseek] = await Promise.allSettled([
     callGroq(symbol, timeframe, marketData),
     callHuggingFace(symbol, timeframe, marketData),
     callGemini(symbol, timeframe, marketData),
     callMistral(symbol, timeframe, marketData),
     callOpenRouter(symbol, timeframe, marketData),
+    callDeepSeek(symbol, timeframe, marketData),
   ]);
 
   const results = [
@@ -383,7 +416,14 @@ async function generateMultiAIPrediction(symbol, timeframe) {
       : { provider: 'mistral',     data: null, error: extractError(mistral.reason) },
     openrouter.status === 'fulfilled' ? openrouter.value
       : { provider: 'openrouter',  data: null, error: extractError(openrouter.reason) },
+    deepseek.status   === 'fulfilled' ? deepseek.value
+      : { provider: 'deepseek',    data: null, error: extractError(deepseek.reason) },
   ];
+
+  // Log per-provider failures so operators can debug the real cause
+  results.filter(r => r.error || !r.data).forEach(r => {
+    console.error(`[MultiAI] ${r.provider} failed: ${r.error || 'no data'}`);
+  });
 
   const consensus = buildConsensus(results, symbol, timeframe);
 
