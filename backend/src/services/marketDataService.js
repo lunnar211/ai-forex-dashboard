@@ -67,7 +67,13 @@ async function getLiveQuote(symbol) {
       timestamp:      d.t ? new Date(d.t * 1000).toISOString() : new Date().toISOString(),
     };
   } catch (err) {
-    console.error('[MarketData] Finnhub quote error:', err.message);
+    if (err.response?.status === 403) {
+      console.warn('[MarketData] Finnhub 403 — check FINNHUB_API_KEY in env vars');
+    } else if (err.response?.status === 429) {
+      console.warn('[MarketData] Finnhub quote rate limited');
+    } else {
+      console.error('[MarketData] Finnhub quote error:', err.message);
+    }
     return null;
   }
 }
@@ -91,6 +97,9 @@ async function getMarketSentiment(symbol) {
         : 0,
     };
   } catch (err) {
+    if (err.response?.status === 403 || err.response?.status === 429) {
+      return null; // silent fail — key invalid or rate limited
+    }
     console.error('[MarketData] Finnhub sentiment error:', err.message);
     return null;
   }
