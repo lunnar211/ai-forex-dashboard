@@ -234,12 +234,82 @@ export default function AIPredictionPanel({ prediction, loading, symbol }: Props
           )}
 
           {/* ── AI explanation ── */}
-          {(prediction.explanation ?? prediction.reasoning) && (
-            <div className="px-5 py-4">
-              <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider mb-2">💬 Why?</p>
-              <p className="text-xs text-[#94a3b8] leading-relaxed">
-                {prediction.explanation ?? prediction.reasoning}
+          {(prediction.why_explanation || prediction.explanation || prediction.reasoning) && (
+            <div className="px-5 py-4 space-y-3">
+              <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider">
+                💬 Why {prediction.direction}{symbol ? ` ${symbol}` : ''}?
               </p>
+
+              {/* Main explanation paragraph */}
+              <div className="bg-[#0f172a] rounded-xl p-3 border border-[#334155]">
+                <p className="text-xs text-[#cbd5e1] leading-relaxed">
+                  {prediction.why_explanation || prediction.explanation || prediction.reasoning}
+                </p>
+              </div>
+
+              {/* Technical Confirmations */}
+              {prediction.technical_confirmations && prediction.technical_confirmations.length > 0 && (
+                <div className="bg-[#0f172a] rounded-xl p-3 border border-green-900/40">
+                  <p className="text-[10px] font-bold text-green-400 uppercase tracking-wider mb-2">✅ Technical Confirmations</p>
+                  <ul className="space-y-1">
+                    {prediction.technical_confirmations.map((item, i) => (
+                      <li key={i} className="text-xs text-[#cbd5e1] flex items-start gap-1.5">
+                        <span className="text-green-400 mt-0.5 flex-shrink-0">•</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Smart Money Analysis */}
+              {prediction.smart_money_analysis && prediction.smart_money_analysis.length > 0 && (
+                <div className="bg-[#0f172a] rounded-xl p-3 border border-blue-900/40">
+                  <p className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-2">🏦 Smart Money Analysis</p>
+                  <ul className="space-y-1">
+                    {prediction.smart_money_analysis.map((item, i) => (
+                      <li key={i} className="text-xs text-[#cbd5e1] flex items-start gap-1.5">
+                        <span className="text-blue-400 mt-0.5 flex-shrink-0">•</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Risks */}
+              {prediction.risks && prediction.risks.length > 0 && (
+                <div className="bg-[#0f172a] rounded-xl p-3 border border-red-900/40">
+                  <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-2">⚠️ Risks to Watch</p>
+                  <ul className="space-y-1">
+                    {prediction.risks.map((item, i) => (
+                      <li key={i} className="text-xs text-[#cbd5e1] flex items-start gap-1.5">
+                        <span className="text-red-400 mt-0.5 flex-shrink-0">•</span>
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Entry & Exit Strategy */}
+              {(prediction.entry_strategy || prediction.exit_strategy) && (
+                <div className="bg-[#0f172a] rounded-xl p-3 border border-purple-900/40">
+                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-2">🎯 Execution Plan</p>
+                  {prediction.entry_strategy && (
+                    <p className="text-xs text-[#cbd5e1] mb-1.5">
+                      <span className="text-green-400 font-semibold">Entry: </span>
+                      {prediction.entry_strategy}
+                    </p>
+                  )}
+                  {prediction.exit_strategy && (
+                    <p className="text-xs text-[#cbd5e1]">
+                      <span className="text-red-400 font-semibold">Management: </span>
+                      {prediction.exit_strategy}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

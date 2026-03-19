@@ -59,7 +59,7 @@ function dirScore(d) {
   return 0;
 }
 
-// ── Short prompt for fast models to avoid timeout ─────────────────────────────
+// ── Prompt for multi-AI providers — includes deep analysis fields ─────────────
 function buildShortPrompt(symbol, timeframe, marketData) {
   const quote = marketData?.quote;
   const price = quote?.current_price || 'unknown';
@@ -67,7 +67,7 @@ function buildShortPrompt(symbol, timeframe, marketData) {
   const low   = quote?.low           || 'unknown';
   const prev  = quote?.previous_close || 'unknown';
 
-  return `You are an expert forex trader and quantitative analyst.
+  return `You are a world-class professional forex trader and quantitative analyst with 20 years of experience in technical analysis, Smart Money Concepts (SMC), and institutional trading.
 
 LIVE DATA:
 Symbol: ${symbol}
@@ -78,16 +78,16 @@ Today Low: ${low}
 Previous Close: ${prev}
 Time: ${new Date().toISOString()}
 
-Analyse using: RSI, MACD, EMA stack, Bollinger Bands, ATR, Fibonacci, Support/Resistance, Smart Money Concepts.
+Analyse using: RSI, MACD, EMA stack, Bollinger Bands, ATR, Fibonacci, Support/Resistance, Smart Money Concepts (order blocks, break of structure, liquidity sweeps).
 
 Rules:
 - Max 2% account risk per trade
-- Min 1:3 risk reward ratio
+- Min 1:2 risk reward ratio
 - Only trade if confluence >= 58%
 - Stop Loss = ATR x 1.5 from entry
 - TP1 = ATR x 2.5, TP2 = ATR x 4.5
 
-Return ONLY this JSON (no markdown, no text outside JSON):
+Return ONLY valid JSON (no markdown, no text outside JSON):
 {
   "setup": true,
   "direction": "BUY",
@@ -102,10 +102,28 @@ Return ONLY this JSON (no markdown, no text outside JSON):
   "trend": "UPTREND",
   "market_sentiment": "BULLISH",
   "strategy_used": "EMA + RSI + SMC",
-  "reasoning": "Price bouncing off 61.8% Fibonacci with RSI divergence"
+  "reasoning": "Short one-sentence summary of signal",
+  "why_explanation": "Write 4-6 sentences explaining the FULL reason for this signal like a professional trader mentor. Be specific about price levels, indicator values, and market context. Explain the confluence of factors and why they matter. Mention key risks. End with entry/SL/TP summary.",
+  "technical_confirmations": [
+    "RSI(14) at [value] — [oversold/overbought/neutral], historically precedes [reversal/continuation]",
+    "MACD histogram [positive/negative] and [expanding/contracting] — momentum [shifting bullish/bearish]",
+    "Price [above/below] EMA20 and EMA50 — [bullish/bearish] short/medium-term momentum",
+    "Bollinger Band [lower/upper] touch at [level] — mean reversion [upward/downward] expected"
+  ],
+  "smart_money_analysis": [
+    "Order block at [level] — institutional [buying/selling] zone identified",
+    "Break of Structure [bullish/bearish] at [level] — [bulls/bears] took control",
+    "Liquidity sweep [below/above] [level] — stop hunt complete, reversal likely"
+  ],
+  "risks": [
+    "Primary risk: [specific risk such as key resistance, news event, or invalidation level]",
+    "Secondary risk: [session timing, low liquidity, or conflicting higher-timeframe signal]"
+  ],
+  "entry_strategy": "Enter [at market / limit at price] because [reason]. Wait for [confirmation if needed].",
+  "exit_strategy": "Move SL to breakeven once price reaches [level]. Take partial profit at TP1 ([level]). Let runner go to TP2 ([level])."
 }
 
-If no valid setup return:
+If no valid setup:
 {"setup": false, "direction": "NEUTRAL", "confidence": 0, "reason": "Low confluence"}`;
 }
 
@@ -117,7 +135,7 @@ async function callGroq(symbol, timeframe, marketData) {
 
   const res = await client.chat.completions.create({
     model:      'llama-3.1-8b-instant',
-    max_tokens: 500,
+    max_tokens: 1200,
     messages: [
       { role: 'system', content: 'You are a forex analyst. Return JSON only.' },
       { role: 'user',   content: prompt },
@@ -140,7 +158,7 @@ async function callHuggingFace(symbol, timeframe, marketData) {
         { role: 'system', content: 'You are a forex analyst. Return JSON only. No markdown.' },
         { role: 'user',   content: prompt },
       ],
-      max_tokens: 500,
+      max_tokens: 1200,
       stream: false,
     },
     {
@@ -177,7 +195,7 @@ async function callMistral(symbol, timeframe, marketData) {
     'https://api.mistral.ai/v1/chat/completions',
     {
       model:      'open-mistral-7b',
-      max_tokens: 500,
+      max_tokens: 1200,
       messages: [
         { role: 'system', content: 'You are a forex analyst. Return JSON only.' },
         { role: 'user',   content: prompt },
@@ -204,7 +222,7 @@ async function callOpenRouter(symbol, timeframe, marketData) {
     'https://openrouter.ai/api/v1/chat/completions',
     {
       model:      'microsoft/phi-3-mini-128k-instruct:free',
-      max_tokens: 500,
+      max_tokens: 1200,
       messages: [
         { role: 'system', content: 'You are a forex analyst. Return JSON only.' },
         { role: 'user',   content: prompt },
@@ -314,6 +332,14 @@ function buildConsensus(results, symbol, timeframe) {
     reasoning: allAgree
       ? `${valid.length} AI models agree: ${direction}. Confidence ${consensusConf}%. ${best.data.reasoning || ''}`.trim()
       : `Weighted consensus: ${direction} from ${valid.length} models. Best signal: ${best.provider}. ${best.data.reasoning || ''}`.trim(),
+    // Deep analysis fields from the highest-confidence provider
+    why_explanation:          best.data.why_explanation || best.data.reasoning || null,
+    technical_confirmations:  Array.isArray(best.data.technical_confirmations)  ? best.data.technical_confirmations  : [],
+    smart_money_analysis:     Array.isArray(best.data.smart_money_analysis)     ? best.data.smart_money_analysis     : [],
+    news_context:             Array.isArray(best.data.news_context)             ? best.data.news_context             : [],
+    risks:                    Array.isArray(best.data.risks)                    ? best.data.risks                    : [],
+    entry_strategy:           best.data.entry_strategy  || null,
+    exit_strategy:            best.data.exit_strategy   || null,
   };
 }
 
@@ -378,6 +404,8 @@ async function generateMultiAIPrediction(symbol, timeframe) {
     live_price_used:  Boolean(marketData.quote),
     live_price:       marketData.quote?.current_price ?? null,
     live_change_pct:  marketData.quote?.change_pct    ?? null,
+    // deep analysis fields (alias for frontend compatibility)
+    explanation:      consensus.why_explanation || consensus.reasoning || null,
   };
 }
 

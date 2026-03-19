@@ -121,7 +121,7 @@ export interface Prediction {
   tp1Pips?: number;
   riskRewardRatio: number;
   reasoning: string;
-  explanation?: string;
+  explanation?: string | null;
   keyRisks: string;
   marketBias: string;
   timeHorizon: string;
@@ -156,6 +156,14 @@ export interface Prediction {
   failed_providers?: Array<{ provider: string; error: string }>;
   all_agreed?: boolean;
   providers_count?: number;
+  // Deep analysis fields
+  why_explanation?: string | null;
+  technical_confirmations?: string[];
+  smart_money_analysis?: string[];
+  news_context?: string[];
+  risks?: string[];
+  entry_strategy?: string | null;
+  exit_strategy?: string | null;
 }
 
 export interface NewsArticle {

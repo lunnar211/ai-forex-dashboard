@@ -79,11 +79,27 @@ Respond ONLY with valid JSON in the following exact structure — no markdown, n
   "stopLoss": <number>,
   "takeProfit": <number>,
   "riskRewardRatio": <number>,
-  "reasoning": "<professional multi-sentence analysis covering multi-timeframe confluence, key levels, and indicator signals>",
+  "reasoning": "<one-sentence signal summary>",
   "keyRisks": "<brief description of what would invalidate this setup>",
   "marketBias": "BULLISH" | "BEARISH" | "NEUTRAL",
   "timeHorizon": "<estimated trade duration based on timeframe>",
-  "disclaimer": "For educational purposes only. Not financial advice."
+  "disclaimer": "For educational purposes only. Not financial advice.",
+  "why_explanation": "<4-6 sentence professional explanation of the full reason for this signal. Reference specific price levels and indicator values. Explain the confluence. Mention the risk. End with the trade plan summary.>",
+  "technical_confirmations": [
+    "<specific confirmation 1 with indicator value and implication>",
+    "<specific confirmation 2>",
+    "<specific confirmation 3>"
+  ],
+  "smart_money_analysis": [
+    "<order block / BOS / liquidity observation 1>",
+    "<order block / BOS / liquidity observation 2>"
+  ],
+  "risks": [
+    "<specific risk 1: invalidation level or upcoming event>",
+    "<specific risk 2>"
+  ],
+  "entry_strategy": "<exact entry instruction: at market / limit / confirmation candle>",
+  "exit_strategy": "<trade management: SL move to breakeven trigger, partial close at TP1, runner to TP2>"
 }`;
 }
 
@@ -117,6 +133,15 @@ function parseAIResponse(content, symbol, indicators) {
     emaAlignment: parsed.emaAlignment || '',
     disclaimer: 'For educational purposes only. Not financial advice.',
     aiProvider: 'groq',
+    // Deep analysis fields
+    why_explanation:         parsed.why_explanation         || null,
+    explanation:             parsed.why_explanation         || parsed.reasoning || null,
+    technical_confirmations: Array.isArray(parsed.technical_confirmations) ? parsed.technical_confirmations : [],
+    smart_money_analysis:    Array.isArray(parsed.smart_money_analysis)    ? parsed.smart_money_analysis    : [],
+    news_context:            Array.isArray(parsed.news_context)            ? parsed.news_context            : [],
+    risks:                   Array.isArray(parsed.risks)                   ? parsed.risks                   : [],
+    entry_strategy:          parsed.entry_strategy          || null,
+    exit_strategy:           parsed.exit_strategy           || null,
   };
 }
 
