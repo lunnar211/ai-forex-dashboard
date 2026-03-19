@@ -78,6 +78,11 @@ export default function handler(req: NextApiRequest, res: NextApiResponse): void
       path: parsedUrl.pathname + parsedUrl.search,
       method: req.method,
       headers: forwardHeaders,
+      // 30-second socket timeout: prevents the proxy from hanging indefinitely
+      // when the backend is slow to respond (e.g. cold-start on Render free tier).
+      // The platform gateway typically times out after ~30 s and returns 502 on
+      // its own; aborting early lets us return a meaningful JSON error instead.
+      timeout: 30000,
     },
     (proxyRes) => {
       // Forward the backend's status code and headers unchanged.
@@ -88,12 +93,22 @@ export default function handler(req: NextApiRequest, res: NextApiResponse): void
     }
   );
 
+  proxyReq.on('timeout', () => {
+    // Abort the stalled request so the 'error' handler fires immediately.
+    proxyReq.destroy();
+  });
+
   proxyReq.on('error', (err) => {
     console.error('[API Proxy] Backend unreachable:', err.message, '→', targetUrl);
     if (!res.headersSent) {
+      // Distinguish between a timeout and a plain connection failure so that
+      // users get an actionable message (e.g. "backend is starting up" vs
+      // "URL is misconfigured").
+      const isTimeout = err.message.includes('socket hang up') || (err as NodeJS.ErrnoException).code === 'ECONNRESET' || (err as NodeJS.ErrnoException).code === 'ECONNABORTED';
       res.status(502).json({
-        error:
-          'Cannot connect to the backend API. Ensure NEXT_PUBLIC_API_URL is set on the frontend service (not the backend service) and points to the backend URL.',
+        error: isTimeout
+          ? 'The backend API took too long to respond. It may still be starting up — please try again in a few seconds.'
+          : 'Cannot connect to the backend API. Ensure NEXT_PUBLIC_API_URL is set on the frontend service (not the backend service) and points to the backend URL.',
       });
     }
   });

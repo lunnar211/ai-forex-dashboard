@@ -28,6 +28,11 @@ const PORT = process.env.PORT || 5000;
 
 // ─── Security & Logging middleware ────────────────────────────────────────────
 
+// Trust Render's (or any single-hop) reverse proxy so that req.ip and
+// rate-limiters see the real client IP from X-Forwarded-For rather than the
+// load-balancer's IP (which would cause all users to share one rate-limit bucket).
+app.set('trust proxy', 1);
+
 app.use(helmet());
 app.use(
   cors({
@@ -64,7 +69,7 @@ app.use('/forex', forexRoutes);
 app.use('/ai', aiRoutes);
 app.use('/admin', adminRoutes);
 app.use('/activity', activityRoutes);
-app.use('/api/market', marketRoutes);
+app.use('/market', marketRoutes);
 app.use('/signals', signalsRoutes);
 app.use('/news', newsRoutes);
 
