@@ -16,7 +16,7 @@
 const axios = require('axios');
 
 const FINNHUB_KEY    = process.env.FINNHUB_API_KEY;
-const NEWSDATA_KEY   = process.env.NEWSDATA_API_KEY;
+const NEWSDATA_KEY   = process.env.NEWSDATA_API_KEY || process.env.NEWSDATA_KEY;
 const POLYMARKET_KEY = process.env.POLYMARKET_API_KEY;
 // STEADYAPI_KEY reserved for future expansion
 // const STEADYAPI_KEY = process.env.STEADYAPI_KEY;

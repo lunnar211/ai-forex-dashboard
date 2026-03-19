@@ -147,55 +147,14 @@ const PLATFORM_CATEGORIES: PlatformCategoryDef[] = [
   },
 ];
 
-const T212_SYMBOL_MAP: Record<string, string> = {
-  'EUR/USD': 'EURUSD',
-  'GBP/USD': 'GBPUSD',
-  'USD/JPY': 'USDJPY',
-  'AUD/USD': 'AUDUSD',
-  'XAU/USD': 'XAUUSD',
-  'USD/CAD': 'USDCAD',
-  'USD/CHF': 'USDCHF',
-  'NZD/USD': 'NZDUSD',
-  'EUR/GBP': 'EURGBP',
-  'EUR/JPY': 'EURJPY',
-  'GBP/JPY': 'GBPJPY',
-  'XAG/USD': 'XAGUSD',
-};
-
-// Trading212 embed uses numeric interval codes
-const T212_TIMEFRAME_MAP: Record<string, string> = {
-  '15min': '15',
-  '1h':    '60',
-  '4h':    '240',
-  '1day':  '1D',
-};
-
+// Trading212 tab shows a live TradingView chart (same engine Trading212 uses internally)
 function Trading212Chart({ symbol, timeframe }: { symbol: string; timeframe: string }) {
-  const t212Symbol = T212_SYMBOL_MAP[symbol] || 'EURUSD';
-  const t212Interval = T212_TIMEFRAME_MAP[timeframe] || '60';
-  const embedUrl = `https://www.trading212.com/en/charts/?symbol=${t212Symbol}&interval=${t212Interval}`;
   return (
-    <div style={{ position: 'relative', height: 500, width: '100%', borderRadius: 12, overflow: 'hidden', background: '#0f0f1a', border: '1px solid #1e1e3a' }}>
-      <iframe
-        src={embedUrl}
-        width="100%"
-        height="100%"
-        frameBorder="0"
-        scrolling="no"
-        allowFullScreen
-        style={{ borderRadius: 12 }}
-        title={`Trading212 ${symbol} Chart`}
-      />
-      <div style={{ position: 'absolute', bottom: 10, right: 10, background: '#0f0f1a', borderRadius: 6, padding: '6px 12px', border: '1px solid #1e1e3a' }}>
-        <a
-          href={`https://www.trading212.com/en/charts/?symbol=${t212Symbol}&interval=${t212Interval}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{ color: '#22c55e', fontSize: 12, textDecoration: 'none' }}
-        >
-          Open in Trading212 →
-        </a>
+    <div style={{ position: 'relative', height: 500, width: '100%' }}>
+      <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 10, background: '#16a34a', color: '#fff', fontSize: 11, padding: '4px 10px', borderRadius: 6, fontWeight: 700, pointerEvents: 'none' }}>
+        📊 Live Chart — Trading212 Style
       </div>
+      <TradingTerminal symbol={symbol} timeframe={timeframe} />
     </div>
   );
 }

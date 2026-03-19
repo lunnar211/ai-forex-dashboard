@@ -58,7 +58,7 @@ export default function NewsPanel({ articles, loading, symbol }: Props) {
         {/* No data */}
         {!loading && articles.length === 0 && (
           <div className="text-center py-6 text-sm text-[#475569]">
-            No recent news found for {symbol}. News data requires a NEWSDATA_API_KEY.
+            No recent news found for {symbol}. Configure a <span className="text-[#94a3b8]">NEWSDATA_API_KEY</span> in your environment to enable live news.
           </div>
         )}
 
