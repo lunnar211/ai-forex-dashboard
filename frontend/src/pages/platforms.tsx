@@ -16,6 +16,8 @@ import type {
 } from '../types';
 
 const ChartPanel = dynamic(() => import('../components/ChartPanel'), { ssr: false });
+const TradingTerminal = dynamic(() => import('../components/TradingTerminal'), { ssr: false });
+import AIPredictionPanel from '../components/AIPredictionPanel';
 
 const TIMEFRAMES: { label: string; value: Timeframe }[] = [
   { label: '5m',  value: '5min' },
@@ -382,7 +384,7 @@ export default function Platforms() {
   const [loadingPredict, setLoadingPredict] = useState(false);
   const [error, setError] = useState('');
   const [chartError, setChartError] = useState('');
-  const [aiProvider, setAiProvider] = useState<'multi' | 'auto' | 'dual' | 'claude' | 'groq'>('multi');
+  const [aiProvider, setAiProvider] = useState<'multi' | 'auto' | 'dual' | 'claude' | 'groq' | 'deepseek' | 'deepseek-r1'>('multi');
   const [chartSource, setChartSource] = useState<'tradingview' | 'trading212'>('tradingview');
   const [liveQuote, setLiveQuote] = useState<{
     current_price: number; open: number; high: number; low: number;
@@ -756,17 +758,11 @@ export default function Platforms() {
                         </div>
                       )}
                     </div>
-                    <div style={{ height: chartSource === 'trading212' ? 500 : 400 }}>
+                    <div style={{ height: 500 }}>
                       {chartSource === 'trading212' ? (
                         <Trading212Chart symbol={selectedSymbol!} timeframe={timeframe} />
-                      ) : chartError ? (
-                        <div className="w-full h-full flex items-center justify-center p-6 text-sm text-red-400">{chartError}</div>
                       ) : (
-                        <ChartPanel
-                          candles={candles}
-                          symbol={selectedSymbol}
-                          timeframe={timeframe}
-                        />
+                        <TradingTerminal symbol={selectedSymbol} timeframe={timeframe} />
                       )}
                     </div>
                   </div>
@@ -799,11 +795,13 @@ export default function Platforms() {
                         <span className="text-xs text-[#94a3b8] font-medium">AI Engine:</span>
                         <div className="flex items-center gap-1 bg-[#0f172a] border border-[#334155] rounded-xl p-1 flex-wrap justify-center">
                           {([
-                            { value: 'multi',  label: '🧠 Multi-AI', title: 'All 5 AI models — weighted consensus (highest accuracy)' },
-                            { value: 'dual',   label: '⚡ Dual AI',  title: 'Claude + Groq combined' },
-                            { value: 'claude', label: '🤖 Claude',   title: 'Anthropic Claude — deep quantitative analysis' },
-                            { value: 'groq',   label: '🚀 Groq',     title: 'Groq LLaMA — fast market analysis' },
-                            { value: 'auto',   label: '🔄 Auto',     title: 'Automatically try all available providers' },
+                            { value: 'multi',        label: '🧠 Multi-AI',  title: 'All 5 AI models — weighted consensus (highest accuracy)' },
+                            { value: 'dual',         label: '⚡ Dual AI',   title: 'Claude + Groq combined' },
+                            { value: 'claude',       label: '🤖 Claude',    title: 'Anthropic Claude — deep quantitative analysis' },
+                            { value: 'groq',         label: '🚀 Groq',      title: 'Groq LLaMA — fast market analysis' },
+                            { value: 'deepseek',     label: '🔮 DeepSeek',  title: 'DeepSeek Chat — cost-effective analysis' },
+                            { value: 'deepseek-r1',  label: '💡 DS-R1',     title: 'DeepSeek Reasoner — chain-of-thought analysis' },
+                            { value: 'auto',         label: '🔄 Auto',      title: 'Automatically try all available providers' },
                           ] as const).map((opt) => (
                             <button
                               key={opt.value}
@@ -867,53 +865,12 @@ export default function Platforms() {
                         macd={indicators.macd ?? null}
                       />
                     )}
-                    {prediction && (
-                      <PredictionCard
-                        prediction={prediction}
-                        indicators={indicators}
-                        loading={false}
-                        symbol={selectedSymbol}
-                      />
-                    )}
-
-                    {/* Multi-AI consensus breakdown panel */}
-                    {prediction?.individual_results_list && prediction.individual_results_list.length > 0 && (
-                      <div className="bg-[#1e293b] border border-[#334155] rounded-2xl p-5">
-                        <div className="flex items-center gap-2 mb-4">
-                          <span className="text-sm font-semibold text-white">🧠 AI Provider Votes</span>
-                          {prediction.all_agreed && (
-                            <span className="text-xs px-2 py-0.5 bg-green-900/40 border border-green-700 text-green-400 rounded-full">All Agree ✓</span>
-                          )}
-                          {prediction.all_agreed === false && (
-                            <span className="text-xs px-2 py-0.5 bg-yellow-900/40 border border-yellow-700 text-yellow-400 rounded-full">Mixed Signals</span>
-                          )}
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {prediction.individual_results_list.map((r) => (
-                            <div key={r.provider} className="flex items-center justify-between bg-[#0f172a] rounded-xl px-4 py-3 border border-[#334155]">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-mono text-[#94a3b8] capitalize">{r.provider}</span>
-                                <span className="text-[10px] text-[#475569]">{r.weight}</span>
-                              </div>
-                              <div className="flex items-center gap-2">
-                                <span className={clsx(
-                                  'text-xs font-bold',
-                                  r.direction === 'BUY'  ? 'text-green-400' :
-                                  r.direction === 'SELL' ? 'text-red-400'   : 'text-yellow-400'
-                                )}>{r.direction}</span>
-                                <span className="text-[10px] text-[#64748b]">{r.confidence}%</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-
-                        {prediction.failed_providers && prediction.failed_providers.length > 0 && (
-                          <p className="mt-3 text-xs text-[#475569]">
-                            Unavailable: {prediction.failed_providers.map((f) => f.provider).join(', ')}
-                          </p>
-                        )}
-                      </div>
-                    )}
+                    <AIPredictionPanel
+                      prediction={prediction}
+                      indicators={indicators}
+                      loading={loadingPredict}
+                      symbol={selectedSymbol}
+                    />
                   </div>
                 </div>
               )}
