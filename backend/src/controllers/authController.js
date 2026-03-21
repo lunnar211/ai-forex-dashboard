@@ -219,7 +219,10 @@ async function sendVerify(req, res) {
       [userId, 'verify', email.toLowerCase()]
     ).catch(() => {});
 
-    await sendVerificationEmail(email.toLowerCase(), code);
+    // Send email asynchronously so the response is not blocked by SMTP latency
+    sendVerificationEmail(email.toLowerCase(), code).catch((err) => {
+      console.error('[AuthController] Failed to send verification email:', err);
+    });
     return res.json({ message: 'Verification code sent to your email.' });
   } catch (err) {
     console.error('[AuthController] sendVerify error:', err.message);
@@ -284,7 +287,10 @@ async function forgotPassword(req, res) {
       [userId, 'reset', email.toLowerCase()]
     ).catch(() => {});
 
-    await sendPasswordResetEmail(email.toLowerCase(), code);
+    // Send email asynchronously so the response is not blocked by SMTP latency
+    sendPasswordResetEmail(email.toLowerCase(), code).catch((err) => {
+      console.error('[AuthController] Failed to send password reset email:', err);
+    });
     return res.json({ message: 'Password reset code sent to your email.' });
   } catch (err) {
     console.error('[AuthController] forgotPassword error:', err.message);
