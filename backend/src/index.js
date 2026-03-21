@@ -187,6 +187,18 @@ async function start() {
     console.log(`[Server] Health check → http://localhost:${PORT}/health`);
   });
 
+  // Self-ping every 9 minutes to stay awake
+  setInterval(async () => {
+    try {
+      const http = require('http');
+      http.get(`http://localhost:${PORT}/health`,
+        (res) => {
+          console.log('[KeepAlive] Self-ping OK:', res.statusCode);
+        }
+      ).on('error', () => {});
+    } catch {}
+  }, 9 * 60 * 1000); // every 9 minutes
+
   // Start Telegram bot (non-fatal if token not set)
   startBot();
 }
