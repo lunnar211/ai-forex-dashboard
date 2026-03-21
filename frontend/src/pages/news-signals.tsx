@@ -164,7 +164,10 @@ export default function NewsSignals() {
       const resp = await fetch('/api/news/world-signals', {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      if (!resp.ok) {
+        const errData = await resp.json().catch(() => ({}));
+        throw new Error((errData as { error?: string }).error || `HTTP ${resp.status}`);
+      }
       const data = await resp.json();
       setArticles(data.articles || []);
     } catch (err: unknown) {
@@ -190,7 +193,7 @@ export default function NewsSignals() {
     setShowWhy(false);
     try {
       const data = await ai.predict(pair, tf);
-      setPrediction(data);
+      setPrediction(data.prediction ?? data);
     } catch (err: unknown) {
       setAiError(err instanceof Error ? err.message : 'AI prediction failed');
     } finally {
