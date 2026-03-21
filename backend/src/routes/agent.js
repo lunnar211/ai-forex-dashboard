@@ -114,8 +114,9 @@ async function resolveActions(actions) {
     } else if (action === 'FETCH_NEWS') {
       try {
         const news = await getForexNews(symbol);
-        if (news && news.length) {
-          const headlines = news.slice(0, MAX_NEWS_HEADLINES).map((n) => `  • ${n.title}`).join('\n');
+        const articles = news?.articles ?? (Array.isArray(news) ? news : null);
+        if (articles && articles.length) {
+          const headlines = articles.slice(0, MAX_NEWS_HEADLINES).map((n) => `  • ${n.title}`).join('\n');
           results.push(`[TOOL RESULT] FETCH_NEWS for ${symbol}:\n${headlines}`);
         } else {
           results.push(`[TOOL RESULT] FETCH_NEWS for ${symbol}: no recent headlines`);

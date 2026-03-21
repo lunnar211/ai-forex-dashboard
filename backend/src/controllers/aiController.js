@@ -30,7 +30,8 @@ const WATCHED_PAIRS = [
 ];
 const RATE_LIMIT_WINDOW = 3600; // 1 hour in seconds
 const RATE_LIMIT_MAX = 20;
-const AI_PROVIDER_TIMEOUT_MS = 30000; // 30 seconds per AI provider call
+const AI_PROVIDER_TIMEOUT_MS = 15000; // 15 seconds per AI provider call
+const AI_AGGREGATE_TIMEOUT_MS = 50000; // 50 seconds overall cap (keeps total under the 60s proxy timeout)
 
 // Allowed symbols and timeframes for predict endpoint
 const ALLOWED_SYMBOLS = new Set([
@@ -236,87 +237,124 @@ async function predict(req, res) {
     let isMock = false;
     let indicators = null;
 
-    // ── Provider-specific routing ─────────────────────────────────────────────
-
-    if (normalizedProvider === 'multi' || normalizedProvider === 'consensus' || normalizedProvider === 'all') {
-      // Multi-AI: All 5 providers in parallel — weighted consensus
-      prediction = await withTimeout(
-        generateMultiAIPrediction(symbol, timeframe),
-        AI_PROVIDER_TIMEOUT_MS * 5
+    // Aggregate timeout: ensures the entire prediction (including all provider
+    // fallbacks) completes well within the frontend proxy's 60-second socket
+    // timeout so callers always receive a proper JSON response.
+    const aggregateTimeoutMs = AI_AGGREGATE_TIMEOUT_MS;
+    let aggregateTimer;
+    const aggregateTimeoutPromise = new Promise((_, reject) => {
+      aggregateTimer = setTimeout(
+        () => reject(new Error('Prediction timed out — all AI providers were too slow. Using rule-based fallback.')),
+        aggregateTimeoutMs
       );
-      // Fetch indicators separately for the response
-      const fetched = await fetchOHLCV(symbol, timeframe, 100);
-      isMock = fetched.isMock;
-      indicators = calculateAll(fetched.candles);
-    } else if (normalizedProvider === 'dual' || normalizedProvider === 'dual_ai') {
-      // Dual AI: Claude + Groq in parallel (dualAIService fetches data internally)
-      prediction = await withTimeout(
-        generateDualPrediction(symbol, timeframe),
-        AI_PROVIDER_TIMEOUT_MS * 2
-      );
-      // Fetch indicators separately for the response (dualAIService uses its own copy)
-      const fetched = await fetchOHLCV(symbol, timeframe, 100);
-      isMock = fetched.isMock;
-      indicators = calculateAll(fetched.candles);
-    } else if (normalizedProvider === 'claude' || normalizedProvider === 'anthropic') {
-      // Claude standalone
-      const fetched = await fetchOHLCV(symbol, timeframe, 100);
-      isMock = fetched.isMock;
-      indicators = calculateAll(fetched.candles);
-      const claudeRaw = await withTimeout(
-        claudePredict(symbol, timeframe),
-        AI_PROVIDER_TIMEOUT_MS
-      );
-      prediction = normaliseClaude(claudeRaw, symbol, indicators);
-    } else {
-      // 1. Fetch candle data
-      const fetched = await fetchOHLCV(symbol, timeframe, 100);
-      isMock = fetched.isMock;
-      const candles = fetched.candles;
+    });
 
-      // 2. Calculate indicators
-      indicators = calculateAll(candles);
+    try {
+      // ── Provider-specific routing ─────────────────────────────────────────────
 
-      // 3. Try requested provider first, then fall back sequentially
-      const ALL_PROVIDERS = [
-        ['groq',        groqService],
-        ['openai',      openaiService],
-        ['gemini',      geminiService],
-        ['openrouter',  openrouterService],
-        ['mistral',     mistralService],
-        ['cohere',      cohereService],
-        ['deepseek',    deepseekService],
-        ['deepseek-r1', { getAIPrediction: (s, t, ind, p) => deepseekService.getAIPredictionReasoner(s, t, ind, p) }],
-      ];
+      if (normalizedProvider === 'multi' || normalizedProvider === 'consensus' || normalizedProvider === 'all') {
+        // Multi-AI: All 5 providers in parallel — weighted consensus
+        prediction = await Promise.race([
+          generateMultiAIPrediction(symbol, timeframe),
+          aggregateTimeoutPromise,
+        ]);
+        // Fetch indicators separately for the response
+        const fetched = await fetchOHLCV(symbol, timeframe, 100);
+        isMock = fetched.isMock;
+        indicators = calculateAll(fetched.candles);
+      } else if (normalizedProvider === 'dual' || normalizedProvider === 'dual_ai') {
+        // Dual AI: Claude + Groq in parallel (dualAIService fetches data internally)
+        prediction = await Promise.race([
+          generateDualPrediction(symbol, timeframe),
+          aggregateTimeoutPromise,
+        ]);
+        // Fetch indicators separately for the response (dualAIService uses its own copy)
+        const fetched = await fetchOHLCV(symbol, timeframe, 100);
+        isMock = fetched.isMock;
+        indicators = calculateAll(fetched.candles);
+      } else if (normalizedProvider === 'claude' || normalizedProvider === 'anthropic') {
+        // Claude standalone
+        const fetched = await fetchOHLCV(symbol, timeframe, 100);
+        isMock = fetched.isMock;
+        indicators = calculateAll(fetched.candles);
+        const claudeRaw = await withTimeout(
+          claudePredict(symbol, timeframe),
+          AI_PROVIDER_TIMEOUT_MS
+        );
+        prediction = normaliseClaude(claudeRaw, symbol, indicators);
+      } else {
+        // 1. Fetch candle data
+        const fetched = await fetchOHLCV(symbol, timeframe, 100);
+        isMock = fetched.isMock;
+        const candles = fetched.candles;
 
-      // If a specific single provider was requested, try it first
-      let orderedProviders = ALL_PROVIDERS;
-      if (normalizedProvider && normalizedProvider !== 'auto') {
-        const requested = ALL_PROVIDERS.find(([name]) => name === normalizedProvider);
-        const rest = ALL_PROVIDERS.filter(([name]) => name !== normalizedProvider);
-        if (requested) orderedProviders = [requested, ...rest];
-      }
+        // 2. Calculate indicators
+        indicators = calculateAll(candles);
 
-      const errors = [];
-      for (const [name, service] of orderedProviders) {
-        try {
-          prediction = await withTimeout(
-            service.getAIPrediction(symbol, timeframe, indicators, candles),
-            AI_PROVIDER_TIMEOUT_MS
-          );
-          prediction.aiProvider = name;
-          break;
-        } catch (err) {
-          errors.push(`${name}: ${err.message}`);
-          console.warn(`[AIController] ${name} failed: ${err.message}`);
+        // 3. Try requested provider first, then fall back sequentially
+        const ALL_PROVIDERS = [
+          ['groq',        groqService],
+          ['openai',      openaiService],
+          ['gemini',      geminiService],
+          ['openrouter',  openrouterService],
+          ['mistral',     mistralService],
+          ['cohere',      cohereService],
+          ['deepseek',    deepseekService],
+          ['deepseek-r1', { getAIPrediction: (s, t, ind, p) => deepseekService.getAIPredictionReasoner(s, t, ind, p) }],
+        ];
+
+        // If a specific single provider was requested, try it first
+        let orderedProviders = ALL_PROVIDERS;
+        if (normalizedProvider && normalizedProvider !== 'auto') {
+          const requested = ALL_PROVIDERS.find(([name]) => name === normalizedProvider);
+          const rest = ALL_PROVIDERS.filter(([name]) => name !== normalizedProvider);
+          if (requested) orderedProviders = [requested, ...rest];
+        }
+
+        const errors = [];
+        for (const [name, service] of orderedProviders) {
+          try {
+            prediction = await Promise.race([
+              withTimeout(
+                service.getAIPrediction(symbol, timeframe, indicators, candles),
+                AI_PROVIDER_TIMEOUT_MS
+              ),
+              aggregateTimeoutPromise,
+            ]);
+            prediction.aiProvider = name;
+            break;
+          } catch (err) {
+            errors.push(`${name}: ${err.message}`);
+            console.warn(`[AIController] ${name} failed: ${err.message}`);
+            // If the aggregate timeout fired, stop trying more providers
+            if (err.message.includes('Prediction timed out')) throw err;
+          }
+        }
+
+        // 4. Final fallback: rule-based
+        if (!prediction) {
+          console.warn('[AIController] All AI providers failed — using rule-based fallback. Errors:', errors);
+          prediction = ruleBased(symbol, indicators);
         }
       }
-
-      // 4. Final fallback: rule-based
+    } catch (timeoutErr) {
+      // Aggregate timeout fired or all providers exhausted: fall back to rule-based
       if (!prediction) {
-        console.warn('[AIController] All AI providers failed — using rule-based fallback. Errors:', errors);
+        console.warn('[AIController] Aggregate timeout or all providers failed:', timeoutErr.message);
+        // indicators may be null if we timed out before fetching candles
+        if (!indicators) {
+          try {
+            const fetched = await fetchOHLCV(symbol, timeframe, 100);
+            isMock = fetched.isMock;
+            indicators = calculateAll(fetched.candles);
+          } catch {
+            indicators = { currentPrice: 0, rsi: 50, macd: {}, ema: {}, atr: 0 };
+          }
+        }
         prediction = ruleBased(symbol, indicators);
       }
+    } finally {
+      clearTimeout(aggregateTimer);
     }
 
     // 5. Persist
