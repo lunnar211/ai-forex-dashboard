@@ -1,0 +1,27 @@
+name: Keep Render Services Alive
+
+on:
+  schedule:
+    # Runs every 10 minutes
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+    # Also allow manual trigger
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Backend
+        run: |
+          curl -s https://ai-forex-backend.onrender.com/health
+          echo "Backend pinged"
+
+      - name: Ping Frontend
+        run: |
+          curl -s https://ai-forex-frontend.onrender.com
+          echo "Frontend pinged"
+
+      - name: Ping Portfolio Backend
+        run: |
+          curl -s https://portfolio-backend1-ei8v.onrender.com/health
+          echo "Portfolio backend pinged"
