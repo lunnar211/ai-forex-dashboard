@@ -169,15 +169,43 @@ export default function Dashboard() {
           {/* Stats row */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: 'Total Predictions', value: statsLoading ? '…' : totalPredictions.toString(), icon: '📊', sub: 'All time' },
-              { label: 'BUY Rate', value: statsLoading ? '…' : `${winRate}%`, icon: '📈', sub: `${buyCount} BUY / ${sellCount} SELL` },
-              { label: 'Tracked Pairs', value: '12', icon: '🌍', sub: 'Live prices' },
-              { label: 'Top Symbol', value: statsLoading ? '…' : (topSymbol ?? '—'), icon: '🏆', sub: 'Most predicted' },
+              {
+                label: 'Total Predictions', value: statsLoading ? '…' : totalPredictions.toString(), sub: 'All time',
+                icon: (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                ),
+              },
+              {
+                label: 'BUY Rate', value: statsLoading ? '…' : `${winRate}%`, sub: `${buyCount} BUY / ${sellCount} SELL`,
+                icon: (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 17l9.2-9.2M17 17V7H7" />
+                  </svg>
+                ),
+              },
+              {
+                label: 'Tracked Pairs', value: '12', sub: 'Live prices',
+                icon: (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" />
+                  </svg>
+                ),
+              },
+              {
+                label: 'Top Symbol', value: statsLoading ? '…' : (topSymbol ?? '—'), sub: 'Most predicted',
+                icon: (
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
+                  </svg>
+                ),
+              },
             ].map((s) => (
               <div key={s.label} className="bg-[#1e293b] border border-[#334155] rounded-xl p-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs text-[#64748b] font-medium">{s.label}</span>
-                  <span className="text-lg">{s.icon}</span>
+                  <span className="text-[#475569]">{s.icon}</span>
                 </div>
                 <p className="text-2xl font-bold text-white">{s.value}</p>
                 <p className="text-xs text-[#475569] mt-1">{s.sub}</p>
@@ -333,7 +361,7 @@ export default function Dashboard() {
             <div className="space-y-4">
               <div className="bg-[#1e293b] border border-[#334155] rounded-xl overflow-hidden">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-[#334155]">
-                  <h2 className="text-sm font-bold text-white">📰 Market News</h2>
+                  <h2 className="text-sm font-bold text-white">Market News</h2>
                   <span className="text-[10px] text-[#475569]">5 min refresh</span>
                 </div>
                 <div className="divide-y divide-[#334155]">
@@ -363,10 +391,10 @@ export default function Dashboard() {
               <div className="bg-[#1e293b] border border-[#334155] rounded-xl p-4 space-y-2">
                 <h3 className="text-xs font-semibold text-[#64748b] uppercase tracking-wider mb-3">Quick Links</h3>
                 {[
-                  { href: '/signals', label: '📡 Live Signals', sub: 'All 12 pairs' },
-                  { href: '/platforms', label: '📊 Trading View', sub: 'Charts & analysis' },
-                  { href: '/analyze', label: '🔍 Image Analysis', sub: 'Upload chart' },
-                  { href: '/history', label: '📜 History', sub: 'All predictions' },
+                  { href: '/signals', label: 'Live Signals', sub: 'All 12 pairs' },
+                  { href: '/platforms', label: 'Trading View', sub: 'Charts & analysis' },
+                  { href: '/analyze', label: 'Image Analysis', sub: 'Upload chart' },
+                  { href: '/history', label: 'History', sub: 'All predictions' },
                 ].map(l => (
                   <button key={l.href} onClick={() => router.push(l.href)}
                     className="w-full flex items-center justify-between px-3 py-2.5 bg-[#0f172a] border border-[#334155] rounded-lg hover:border-blue-600 transition-colors text-left">
@@ -384,7 +412,7 @@ export default function Dashboard() {
           </div>
 
           <p className="text-xs text-[#334155] text-center pb-2">
-            ⚠️ For educational purposes only. Not financial advice.
+            For educational purposes only. Not financial advice.
           </p>
 
           {/* Ko-fi support banner */}
@@ -393,15 +421,19 @@ export default function Dashboard() {
               href="https://ko-fi.com/dipeshkarki"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 hover:opacity-90"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all duration-150 hover:opacity-90 border"
               style={{
-                background: 'linear-gradient(135deg, rgba(255,94,91,0.18), rgba(255,94,91,0.10))',
-                border: '1px solid rgba(255,94,91,0.35)',
+                background: 'rgba(255,94,91,0.12)',
+                borderColor: 'rgba(255,94,91,0.35)',
                 color: '#ff5e5b',
                 textDecoration: 'none',
               }}
             >
-              ☕ Support ForexAI Terminal on Ko-fi
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M2 6h18v2c0 5.523-4.477 10-10 10S0 13.523 0 8V6h2zm16 2H4v.17C4.536 12.59 7.94 16 12 16s7.464-3.41 8-7.83V8z"/>
+                <path d="M20 7h1a3 3 0 110 6h-1V7zm1 4h-1V9h1a1 1 0 110 2z"/>
+              </svg>
+              Support ForexAI Terminal on Ko-fi
             </a>
           </div>
         </main>

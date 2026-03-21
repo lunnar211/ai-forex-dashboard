@@ -339,7 +339,7 @@ export default function Analyze() {
                   )}
 
                   {analysis.disclaimer && (
-                    <p className="text-xs text-[#334155] text-center">⚠️ {analysis.disclaimer}</p>
+                    <p className="text-xs text-[#334155] text-center">{analysis.disclaimer}</p>
                   )}
                 </div>
               )}

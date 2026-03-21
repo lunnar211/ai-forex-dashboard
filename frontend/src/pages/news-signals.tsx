@@ -230,7 +230,7 @@ export default function NewsSignals() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-                📰 News Signals
+                News Signals
               </h1>
               <p className="text-xs text-[#475569] mt-0.5">
                 Real-time news with AI-powered trading signals
@@ -254,7 +254,7 @@ export default function NewsSignals() {
           {/* ── SECTION 1: World News Feed ─────────────────────────────────── */}
           <section>
             <h2 className="text-sm font-semibold text-[#94a3b8] uppercase tracking-widest mb-3 flex items-center gap-2">
-              🌍 World News Feed
+              World News Feed
               <span className="text-[10px] font-normal text-[#475569] normal-case tracking-normal">
                 Auto-refreshes every 5 min
               </span>
@@ -314,7 +314,7 @@ export default function NewsSignals() {
                       {/* Badges */}
                       <div className="flex items-center gap-2 flex-wrap mb-3">
                         <span className={clsx('px-2 py-0.5 rounded text-[10px] font-bold', sty.badge)}>
-                          {article.sentimentEmoji} {article.sentiment}
+                          {article.sentiment}
                         </span>
                         <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/15 text-blue-400 border border-blue-500/30">
                           {article.pair}
@@ -326,7 +326,7 @@ export default function NewsSignals() {
                         className="w-full py-1.5 text-xs font-semibold rounded-lg bg-blue-600/20 text-blue-400 border border-blue-600/30 hover:bg-blue-600/40 transition-colors"
                         onClick={(e) => { e.stopPropagation(); handleSelectArticle(article); }}
                       >
-                        📊 View Signal
+                        View Signal
                       </button>
                     </div>
                   );
@@ -379,7 +379,7 @@ export default function NewsSignals() {
               {/* RIGHT: AI Signal Panel (45%) */}
               <div className="lg:w-[45%] bg-[#1e293b] border border-[#334155] rounded-xl p-5 flex flex-col gap-4">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-white">🤖 AI Signal</span>
+                  <span className="text-sm font-bold text-white">AI Signal</span>
                   <span className="text-[10px] text-[#475569]">for {selected.pair}</span>
                 </div>
 
@@ -395,7 +395,7 @@ export default function NewsSignals() {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
                     </svg>
-                    <p className="text-sm">🤖 AI analyzing news impact…</p>
+                    <p className="text-sm">AI analyzing news impact…</p>
                   </div>
                 ) : prediction ? (
                   <>
@@ -405,7 +405,7 @@ export default function NewsSignals() {
                       DIR_GLOW[dir] ?? 'shadow-slate-900/30'
                     )}>
                       <span className={clsx('text-4xl font-black', DIR_COLOR[dir] ?? 'text-slate-400')}>
-                        {dir === 'BUY' ? '🟢 BUY' : dir === 'SELL' ? '🔴 SELL' : '🟡 HOLD'}
+                        {dir}
                       </span>
                     </div>
 
@@ -466,7 +466,7 @@ export default function NewsSignals() {
                           onClick={() => setShowWhy((v) => !v)}
                           className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 transition-colors font-medium"
                         >
-                          📖 {showWhy ? 'Hide' : 'Why?'}
+                          {showWhy ? 'Hide' : 'Why?'}
                         </button>
                         {showWhy && (
                           <div className="px-3 py-3 bg-[#0f172a] border border-blue-500/20 rounded-lg text-xs text-[#94a3b8] leading-relaxed">
@@ -493,7 +493,7 @@ export default function NewsSignals() {
               <div className="bg-[#1e293b] border border-[#334155] rounded-xl overflow-hidden">
                 <div className="flex items-center">
                   <div className="flex-shrink-0 px-3 py-2 bg-[#0f172a] border-r border-[#334155] text-[10px] font-bold text-[#475569] uppercase tracking-wider">
-                    📡 LIVE
+                    LIVE
                   </div>
                   <div className="flex-1 overflow-hidden">
                     <div
@@ -508,7 +508,7 @@ export default function NewsSignals() {
                             className={clsx('text-xs font-medium cursor-pointer hover:opacity-80', sty.ticker)}
                             onClick={() => handleSelectArticle(a)}
                           >
-                            {a.sentimentEmoji} {a.title}
+                            {a.title}
                           </span>
                         );
                       })}
@@ -528,7 +528,7 @@ export default function NewsSignals() {
           )}
 
           <p className="text-xs text-[#475569] text-center">
-            ⚠️ News signals are AI-generated for educational purposes only. Not financial advice.
+            News signals are AI-generated for educational purposes only. Not financial advice.
           </p>
         </main>
       </div>

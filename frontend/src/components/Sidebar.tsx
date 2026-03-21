@@ -184,7 +184,10 @@ export default function Sidebar() {
               }}
               onClick={() => setOpen(false)}
             >
-              <span>☕</span>
+              <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M2 6h18v2c0 5.523-4.477 10-10 10S0 13.523 0 8V6h2zm16 2H4v.17C4.536 12.59 7.94 16 12 16s7.464-3.41 8-7.83V8z"/>
+                <path d="M20 7h1a3 3 0 110 6h-1V7zm1 4h-1V9h1a1 1 0 110 2z"/>
+              </svg>
               <span className="flex-1">Support Us on Ko-fi</span>
             </a>
           </div>

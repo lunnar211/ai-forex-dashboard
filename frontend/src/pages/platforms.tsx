@@ -33,7 +33,7 @@ const PLATFORM_CATEGORIES: PlatformCategoryDef[] = [
     name: 'Forex',
     description: 'Foreign Exchange Markets',
     color: 'blue',
-    icon: '💱',
+    icon: 'FX',
     instruments: [
       { symbol: 'EUR/USD', name: 'Euro / US Dollar' },
       { symbol: 'GBP/USD', name: 'British Pound / US Dollar' },
@@ -52,7 +52,7 @@ const PLATFORM_CATEGORIES: PlatformCategoryDef[] = [
     name: 'Precious Metals',
     description: 'Gold, Silver & Commodities',
     color: 'yellow',
-    icon: '🥇',
+    icon: 'PM',
     instruments: [
       { symbol: 'XAU/USD', name: 'Gold / US Dollar' },
       { symbol: 'XAG/USD', name: 'Silver / US Dollar' },
@@ -65,7 +65,7 @@ const PLATFORM_CATEGORIES: PlatformCategoryDef[] = [
     name: 'Crypto',
     description: 'Digital Asset Markets',
     color: 'purple',
-    icon: '₿',
+    icon: 'CT',
     instruments: [
       { symbol: 'BTC/USD', name: 'Bitcoin / US Dollar' },
       { symbol: 'ETH/USD', name: 'Ethereum / US Dollar' },
@@ -84,7 +84,7 @@ const PLATFORM_CATEGORIES: PlatformCategoryDef[] = [
     name: 'Stocks',
     description: 'Global Equity Markets',
     color: 'green',
-    icon: '📈',
+    icon: 'EQ',
     instruments: [
       { symbol: 'AAPL', name: 'Apple Inc.' },
       { symbol: 'GOOGL', name: 'Alphabet Inc.' },
@@ -103,7 +103,7 @@ const PLATFORM_CATEGORIES: PlatformCategoryDef[] = [
     name: 'Copy Trading',
     description: 'Social & Copy Trading',
     color: 'teal',
-    icon: '🔄',
+    icon: 'CP',
     instruments: [
       { symbol: 'EUR/USD', name: 'Euro / US Dollar' },
       { symbol: 'GBP/USD', name: 'British Pound / US Dollar' },
@@ -122,7 +122,7 @@ const PLATFORM_CATEGORIES: PlatformCategoryDef[] = [
     name: 'Indices',
     description: 'Major Market Indices',
     color: 'red',
-    icon: '📊',
+    icon: 'IX',
     instruments: [
       { symbol: 'SPX', name: 'S&P 500 Index' },
       { symbol: 'DJI', name: 'Dow Jones Industrial' },
@@ -137,7 +137,7 @@ const PLATFORM_CATEGORIES: PlatformCategoryDef[] = [
     name: 'Commodities',
     description: 'Oil, Gas & Agricultural',
     color: 'orange',
-    icon: '🛢️',
+    icon: 'CM',
     instruments: [
       { symbol: 'OIL/USD', name: 'Crude Oil / US Dollar' },
       { symbol: 'NATGAS/USD', name: 'Natural Gas / US Dollar' },
@@ -150,9 +150,9 @@ const PLATFORM_CATEGORIES: PlatformCategoryDef[] = [
 // Trading212 tab shows a live TradingView chart (same engine Trading212 uses internally)
 function Trading212Chart({ symbol, timeframe }: { symbol: string; timeframe: string }) {
   return (
-    <div style={{ position: 'relative', height: 500, width: '100%' }}>
-      <div style={{ position: 'absolute', top: 8, left: 8, zIndex: 10, background: '#16a34a', color: '#fff', fontSize: 11, padding: '4px 10px', borderRadius: 6, fontWeight: 700, pointerEvents: 'none' }}>
-        📊 Live Chart — Trading212 Style
+    <div className="relative" style={{ height: 500, width: '100%' }}>
+      <div className="absolute top-2 left-2 z-10 bg-green-700 text-white text-[11px] px-2.5 py-1 rounded font-bold pointer-events-none">
+        Live Chart — Trading212 Style
       </div>
       <TradingTerminal symbol={symbol} timeframe={timeframe} />
     </div>
@@ -169,7 +169,7 @@ interface TradingPlatformDef {
 const TRADING_PLATFORMS: { category: string; icon: string; color: string; platforms: TradingPlatformDef[] }[] = [
   {
     category: 'Forex / Multi-Asset Platforms',
-    icon: '💱',
+    icon: 'FX',
     color: 'blue',
     platforms: [
       { name: 'MetaTrader 4', description: 'Industry-standard platform for forex & CFD trading with expert advisors.', tag: 'Forex', url: 'https://www.metatrader4.com' },
@@ -181,7 +181,7 @@ const TRADING_PLATFORMS: { category: string; icon: string; color: string; platfo
   },
   {
     category: 'Stock Trading Apps',
-    icon: '📈',
+    icon: 'EQ',
     color: 'green',
     platforms: [
       { name: 'Robinhood', description: 'Commission-free stock, ETF and crypto trading for US investors.', tag: 'Stocks', url: 'https://robinhood.com' },
@@ -193,7 +193,7 @@ const TRADING_PLATFORMS: { category: string; icon: string; color: string; platfo
   },
   {
     category: 'Crypto Trading Platforms',
-    icon: '₿',
+    icon: 'CT',
     color: 'purple',
     platforms: [
       { name: 'Binance', description: "World's largest crypto exchange by trading volume with 350+ coins.", tag: 'Crypto', url: 'https://www.binance.com' },
@@ -205,7 +205,7 @@ const TRADING_PLATFORMS: { category: string; icon: string; color: string; platfo
   },
   {
     category: 'Copy / Social Trading',
-    icon: '🔄',
+    icon: 'CP',
     color: 'teal',
     platforms: [
       { name: 'eToro', description: 'Pioneer of social trading — copy top traders automatically.', tag: 'Social', url: 'https://www.etoro.com' },
@@ -217,7 +217,7 @@ const TRADING_PLATFORMS: { category: string; icon: string; color: string; platfo
   },
   {
     category: 'Precious Metals Brokers',
-    icon: '🥇',
+    icon: 'PM',
     color: 'yellow',
     platforms: [
       { name: 'OANDA', description: 'Trusted broker with tight spreads on gold, silver and other metals.', tag: 'Metals', url: 'https://www.oanda.com' },
@@ -229,7 +229,7 @@ const TRADING_PLATFORMS: { category: string; icon: string; color: string; platfo
   },
   {
     category: 'Indices & Commodities',
-    icon: '📊',
+    icon: 'IX',
     color: 'orange',
     platforms: [
       { name: 'CME Group', description: 'World leading derivatives exchange for futures on indices and commodities.', tag: 'Futures', url: 'https://www.cmegroup.com' },
@@ -530,7 +530,7 @@ export default function Platforms() {
         <main className="flex-1 p-4 md:p-6 space-y-6">
           <div>
             <h1 className="text-xl font-bold text-white flex items-center gap-2">
-              🌐 World Trading Platforms
+              World Trading Platforms
             </h1>
             <p className="text-sm text-[#475569] mt-1">
               Select a market category and instrument to view live charts and AI predictions.
@@ -548,7 +548,7 @@ export default function Platforms() {
                   : 'text-[#94a3b8] hover:text-white'
               )}
             >
-              📊 Markets &amp; Analysis
+              Markets &amp; Analysis
             </button>
             <button
               onClick={() => setActiveTab('platforms')}
@@ -559,7 +559,7 @@ export default function Platforms() {
                   : 'text-[#94a3b8] hover:text-white'
               )}
             >
-              🏢 Trading Platforms
+              Trading Platforms
             </button>
           </div>
 
@@ -581,7 +581,7 @@ export default function Platforms() {
                         'hover:opacity-90'
                       )}
                     >
-                      <div className="text-2xl mb-1">{cat.icon}</div>
+                      <div className={clsx('text-xs font-bold mb-1 px-1.5 py-0.5 rounded w-fit', c.badge)}>{cat.icon}</div>
                       <p className={clsx('text-sm font-semibold', isActive ? c.text : 'text-white')}>{cat.name}</p>
                       <p className="text-[10px] text-[#475569] mt-0.5 leading-tight">{cat.description}</p>
                     </button>
@@ -592,7 +592,7 @@ export default function Platforms() {
               {/* Instruments */}
               <div className={clsx('rounded-2xl border p-4', colors.card)}>
                 <div className="flex items-center gap-2 mb-3">
-                  <span className="text-lg">{selectedCategory.icon}</span>
+                  <span className={clsx('text-xs font-bold px-1.5 py-0.5 rounded', colors.badge)}>{selectedCategory.icon}</span>
                   <h2 className={clsx('font-semibold text-sm', colors.text)}>{selectedCategory.name} Instruments</h2>
                   <span className={clsx('px-2 py-0.5 rounded text-xs font-bold ml-auto', colors.badge)}>
                     {selectedCategory.instruments.length} instruments
@@ -693,7 +693,7 @@ export default function Platforms() {
                           chartSource === 'tradingview' ? 'bg-blue-600 text-white shadow' : 'text-[#94a3b8] hover:text-white'
                         )}
                       >
-                        📈 TradingView
+                        TradingView
                       </button>
                       <button
                         onClick={() => setChartSource('trading212')}
@@ -702,7 +702,7 @@ export default function Platforms() {
                           chartSource === 'trading212' ? 'bg-green-600 text-white shadow' : 'text-[#94a3b8] hover:text-white'
                         )}
                       >
-                        💹 Trading212
+                        Trading212
                       </button>
                     </div>
                   </div>
@@ -727,20 +727,16 @@ export default function Platforms() {
                   </div>
 
                   {chartSource === 'trading212' && (
-                    <div style={{ marginTop: 16, padding: 20, background: '#0a1a0a', borderRadius: 12, border: '1px solid #16a34a33', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+                    <div className="mt-4 px-5 py-4 bg-[#0a1a0a] border border-green-900/30 rounded-xl flex items-center justify-between flex-wrap gap-3">
                       <div>
-                        <div style={{ color: '#22c55e', fontWeight: 700, fontSize: 14 }}>
-                          💹 Trading212 Live Chart
-                        </div>
-                        <div style={{ color: '#64748b', fontSize: 12, marginTop: 2 }}>
-                          Real-time data from Trading212 · Zero commission trading
-                        </div>
+                        <p className="text-green-400 font-semibold text-sm">Trading212 Live Chart</p>
+                        <p className="text-[#64748b] text-xs mt-0.5">Real-time data from Trading212 · Zero commission trading</p>
                       </div>
                       <a
                         href="https://www.trading212.com"
                         target="_blank"
                         rel="noopener noreferrer"
-                        style={{ padding: '8px 18px', borderRadius: 8, background: 'linear-gradient(135deg, #16a34a, #15803d)', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}
+                        className="px-4 py-2 rounded-lg bg-green-700 hover:bg-green-600 text-white text-sm font-semibold transition-colors"
                       >
                         Trade on Trading212 →
                       </a>
@@ -754,13 +750,13 @@ export default function Platforms() {
                         <span className="text-xs text-[#94a3b8] font-medium">AI Engine:</span>
                         <div className="flex items-center gap-1 bg-[#0f172a] border border-[#334155] rounded-xl p-1 flex-wrap justify-center">
                           {([
-                            { value: 'multi',        label: '🧠 Multi-AI',  title: 'All 5 AI models — weighted consensus (highest accuracy)' },
-                            { value: 'dual',         label: '⚡ Dual AI',   title: 'Claude + Groq combined' },
-                            { value: 'claude',       label: '🤖 Claude',    title: 'Anthropic Claude — deep quantitative analysis' },
-                            { value: 'groq',         label: '🚀 Groq',      title: 'Groq LLaMA — fast market analysis' },
-                            { value: 'deepseek',     label: '🔮 DeepSeek',  title: 'DeepSeek Chat — cost-effective analysis' },
-                            { value: 'deepseek-r1',  label: '💡 DS-R1',     title: 'DeepSeek Reasoner — chain-of-thought analysis' },
-                            { value: 'auto',         label: '🔄 Auto',      title: 'Automatically try all available providers' },
+                            { value: 'multi',        label: 'Multi-AI',  title: 'All 5 AI models — weighted consensus (highest accuracy)' },
+                            { value: 'dual',         label: 'Dual AI',   title: 'Claude + Groq combined' },
+                            { value: 'claude',       label: 'Claude',    title: 'Anthropic Claude — deep quantitative analysis' },
+                            { value: 'groq',         label: 'Groq',      title: 'Groq LLaMA — fast market analysis' },
+                            { value: 'deepseek',     label: 'DeepSeek',  title: 'DeepSeek Chat — cost-effective analysis' },
+                            { value: 'deepseek-r1',  label: 'DS-R1',     title: 'DeepSeek Reasoner — chain-of-thought analysis' },
+                            { value: 'auto',         label: 'Auto',      title: 'Automatically try all available providers' },
                           ] as const).map((opt) => (
                             <button
                               key={opt.value}
@@ -845,7 +841,10 @@ export default function Platforms() {
 
               {!selectedSymbol && (
                 <div className="flex flex-col items-center justify-center py-16 text-center">
-                  <div className="text-5xl mb-4">{selectedCategory.icon}</div>
+                  <svg className="w-12 h-12 text-[#334155] mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                      d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+                  </svg>
                   <p className="text-white font-semibold text-lg">Select an instrument above</p>
                   <p className="text-[#475569] text-sm mt-2">
                     Choose any {selectedCategory.name} instrument to view its live chart and get AI predictions.
@@ -863,7 +862,7 @@ export default function Platforms() {
                 return (
                   <div key={group.category}>
                     <div className="flex items-center gap-2 mb-4">
-                      <span className="text-xl">{group.icon}</span>
+                      <span className={clsx('text-xs font-bold px-1.5 py-0.5 rounded', c.badge)}>{group.icon}</span>
                       <h2 className={clsx('font-bold text-base', c.text)}>{group.category}</h2>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">

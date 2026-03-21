@@ -29,7 +29,7 @@ export default function CookieBanner() {
       <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex-1">
           <p className="text-sm text-[#94a3b8]">
-            <span className="text-white font-semibold">🍪 Cookie Notice: </span>
+            <span className="text-white font-semibold">Cookie Notice: </span>
             We use cookies to improve your experience, analyse site usage, and remember your preferences.
             By clicking &quot;Accept All&quot; you consent to our use of all cookies.
           </p>

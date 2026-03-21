@@ -150,7 +150,7 @@ export default function Signals() {
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               <div className="text-xs text-[#475569] px-3 py-2 bg-[#1e293b] border border-[#334155] rounded-lg">
-                🔄 Refresh in {mins}:{secs.toString().padStart(2, '0')}
+                Refresh in {mins}:{secs.toString().padStart(2, '0')}
               </div>
               <button onClick={fetchSignals} disabled={loading}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5">
@@ -277,7 +277,7 @@ export default function Signals() {
           )}
 
           <p className="mt-8 text-xs text-[#475569] text-center">
-            ⚠️ AI signals are for educational purposes only. Not financial advice.
+            AI signals are for educational purposes only. Not financial advice.
           </p>
         </main>
       </div>

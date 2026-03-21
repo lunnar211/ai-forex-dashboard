@@ -9,18 +9,18 @@ interface Props {
   symbol: string | null;
 }
 
-const PROVIDER_ICONS: Record<string, string> = {
-  groq:        '🚀',
-  openai:      '🧠',
-  gemini:      '💫',
-  deepseek:    '🔮',
-  'deepseek-r1': '💡',
-  claude:      '🤖',
-  anthropic:   '🤖',
-  mistral:     '⚙️',
-  openrouter:  '🔄',
-  huggingface: '🤗',
-  cohere:      '🌐',
+const PROVIDER_ABBR: Record<string, string> = {
+  groq:          'GQ',
+  openai:        'OA',
+  gemini:        'GM',
+  deepseek:      'DS',
+  'deepseek-r1': 'DR',
+  claude:        'CL',
+  anthropic:     'AN',
+  mistral:       'MS',
+  openrouter:    'OR',
+  huggingface:   'HF',
+  cohere:        'CO',
 };
 
 function ConfBar({ pct, color }: { pct: number; color: string }) {
@@ -61,9 +61,9 @@ export default function AIPredictionPanel({ prediction, loading, symbol }: Props
     'border-[#334155]';
 
   const signalLabel =
-    dir === 'BUY'  ? '🟢 STRONG BUY'  :
-    dir === 'SELL' ? '🔴 STRONG SELL' :
-    dir === 'HOLD' ? '🟡 HOLD'         : '—';
+    dir === 'BUY'  ? 'STRONG BUY'  :
+    dir === 'SELL' ? 'STRONG SELL' :
+    dir === 'HOLD' ? 'HOLD'        : '—';
 
   return (
     <div className={clsx(
@@ -87,7 +87,10 @@ export default function AIPredictionPanel({ prediction, loading, symbol }: Props
       {/* Empty state */}
       {!loading && !prediction && (
         <div className="flex flex-col items-center justify-center py-10 px-5 text-center gap-3">
-          <span className="text-4xl">🤖</span>
+          <svg className="w-10 h-10 text-[#334155]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
           <p className="text-sm text-[#475569]">
             Click <span className="text-white font-medium">Get AI Prediction</span> to analyse{symbol ? ` ${symbol}` : ' this instrument'}
           </p>
@@ -138,19 +141,19 @@ export default function AIPredictionPanel({ prediction, loading, symbol }: Props
                       ? 'bg-green-900/40 text-green-400 border border-green-800'
                       : 'bg-yellow-900/30 text-yellow-400 border border-yellow-800'
                   )}>
-                    {prediction.all_agreed ? '✅ All Agree' : '⚠️ Mixed'}
+                    {prediction.all_agreed ? 'All Agree' : 'Mixed'}
                   </span>
                 )}
               </div>
               <div className="space-y-2">
                 {prediction.individual_results_list.map((r) => {
-                  const icon = PROVIDER_ICONS[r.provider?.toLowerCase()] ?? '🔹';
+                  const abbr = PROVIDER_ABBR[r.provider?.toLowerCase()] ?? r.provider?.slice(0,2).toUpperCase() ?? '??';
                   const col =
                     r.direction === 'BUY'  ? '#00ff88' :
                     r.direction === 'SELL' ? '#ff4444' : '#ffaa00';
                   return (
                     <div key={r.provider} className="flex items-center gap-2 text-xs">
-                      <span className="w-5 text-center">{icon}</span>
+                      <span className="w-5 text-center text-[10px] font-bold text-[#64748b]">{abbr}</span>
                       <span className="text-[#94a3b8] w-[72px] capitalize truncate">{r.provider}</span>
                       <span className="font-bold w-8" style={{ color: col }}>{r.direction}</span>
                       <ConfBar pct={r.confidence} color={col} />
@@ -164,7 +167,7 @@ export default function AIPredictionPanel({ prediction, loading, symbol }: Props
 
           {/* ── Trade plan ── */}
           <div className="px-5 py-4">
-            <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider mb-3">📊 Trade Plan</p>
+            <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider mb-3">Trade Plan</p>
             <div className="grid grid-cols-2 gap-2 text-xs mb-2">
               <div className="bg-[#1e293b] rounded-xl p-3 text-center">
                 <p className="text-[#64748b] mb-1 text-[10px] uppercase tracking-wider">Entry</p>
@@ -179,9 +182,9 @@ export default function AIPredictionPanel({ prediction, loading, symbol }: Props
             {(prediction.takeProfit1 ?? prediction.takeProfit) ? (
               <div className="grid grid-cols-3 gap-2 text-xs">
                 {[
-                  { label: 'TP1 🎯', val: prediction.takeProfit1 ?? prediction.takeProfit },
-                  { label: 'TP2 🎯', val: prediction.takeProfit2 },
-                  { label: 'TP3 🎯', val: prediction.takeProfit3 },
+                  { label: 'TP1', val: prediction.takeProfit1 ?? prediction.takeProfit },
+                  { label: 'TP2', val: prediction.takeProfit2 },
+                  { label: 'TP3', val: prediction.takeProfit3 },
                 ]
                   .filter((tp) => tp.val)
                   .map((tp) => (
@@ -203,16 +206,18 @@ export default function AIPredictionPanel({ prediction, loading, symbol }: Props
             <div className="px-5 py-3 flex gap-2 flex-wrap">
               {prediction.session && (
                 <span className="text-xs px-2.5 py-1 rounded-full bg-blue-900/30 text-blue-400 border border-blue-900/50">
-                  {prediction.session === 'london'   ? '🟢' :
-                   prediction.session === 'newyork'  ? '🟡' :
-                   prediction.session === 'asian'    ? '🔵' : '⚫'}{' '}
                   {prediction.session.charAt(0).toUpperCase() + prediction.session.slice(1)} Session
                 </span>
               )}
               {prediction.volatility && (
-                <span className="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
-                  {prediction.volatility === 'high'   ? '🔴' :
-                   prediction.volatility === 'medium' ? '🟡' : '🟢'}{' '}
+                <span className={clsx(
+                  'text-xs px-2.5 py-1 rounded-full border',
+                  prediction.volatility === 'high'
+                    ? 'bg-red-900/30 text-red-400 border-red-900/50'
+                    : prediction.volatility === 'medium'
+                    ? 'bg-yellow-900/30 text-yellow-400 border-yellow-900/50'
+                    : 'bg-slate-800 text-slate-300 border-slate-700'
+                )}>
                   {prediction.volatility.charAt(0).toUpperCase() + prediction.volatility.slice(1)} Vol
                 </span>
               )}
@@ -237,7 +242,7 @@ export default function AIPredictionPanel({ prediction, loading, symbol }: Props
           {(prediction.why_explanation || prediction.explanation || prediction.reasoning) && (
             <div className="px-5 py-4 space-y-3">
               <p className="text-xs font-semibold text-[#94a3b8] uppercase tracking-wider">
-                💬 Why {prediction.direction}{symbol ? ` ${symbol}` : ''}?
+                Why {prediction.direction}{symbol ? ` ${symbol}` : ''}?
               </p>
 
               {/* Main explanation paragraph */}
@@ -250,7 +255,7 @@ export default function AIPredictionPanel({ prediction, loading, symbol }: Props
               {/* Technical Confirmations */}
               {prediction.technical_confirmations && prediction.technical_confirmations.length > 0 && (
                 <div className="bg-[#0f172a] rounded-xl p-3 border border-green-900/40">
-                  <p className="text-[10px] font-bold text-green-400 uppercase tracking-wider mb-2">✅ Technical Confirmations</p>
+                  <p className="text-[10px] font-bold text-green-400 uppercase tracking-wider mb-2">Technical Confirmations</p>
                   <ul className="space-y-1">
                     {prediction.technical_confirmations.map((item, i) => (
                       <li key={i} className="text-xs text-[#cbd5e1] flex items-start gap-1.5">
@@ -265,7 +270,7 @@ export default function AIPredictionPanel({ prediction, loading, symbol }: Props
               {/* Smart Money Analysis */}
               {prediction.smart_money_analysis && prediction.smart_money_analysis.length > 0 && (
                 <div className="bg-[#0f172a] rounded-xl p-3 border border-blue-900/40">
-                  <p className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-2">🏦 Smart Money Analysis</p>
+                  <p className="text-[10px] font-bold text-blue-400 uppercase tracking-wider mb-2">Smart Money Analysis</p>
                   <ul className="space-y-1">
                     {prediction.smart_money_analysis.map((item, i) => (
                       <li key={i} className="text-xs text-[#cbd5e1] flex items-start gap-1.5">
@@ -280,7 +285,7 @@ export default function AIPredictionPanel({ prediction, loading, symbol }: Props
               {/* Risks */}
               {prediction.risks && prediction.risks.length > 0 && (
                 <div className="bg-[#0f172a] rounded-xl p-3 border border-red-900/40">
-                  <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-2">⚠️ Risks to Watch</p>
+                  <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider mb-2">Risks to Watch</p>
                   <ul className="space-y-1">
                     {prediction.risks.map((item, i) => (
                       <li key={i} className="text-xs text-[#cbd5e1] flex items-start gap-1.5">
@@ -295,7 +300,7 @@ export default function AIPredictionPanel({ prediction, loading, symbol }: Props
               {/* Entry & Exit Strategy */}
               {(prediction.entry_strategy || prediction.exit_strategy) && (
                 <div className="bg-[#0f172a] rounded-xl p-3 border border-purple-900/40">
-                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-2">🎯 Execution Plan</p>
+                  <p className="text-[10px] font-bold text-purple-400 uppercase tracking-wider mb-2">Execution Plan</p>
                   {prediction.entry_strategy && (
                     <p className="text-xs text-[#cbd5e1] mb-1.5">
                       <span className="text-green-400 font-semibold">Entry: </span>
